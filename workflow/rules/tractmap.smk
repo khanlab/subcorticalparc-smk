@@ -116,7 +116,7 @@ rule combine_tractmaps:
     container: config['singularity']['neuroglia']
     group: 'participant2'
     resources:
-        mem = 32000 
+        mem_mb = 32000 
     shell:
         'fslmerge -t {output.tractmaps_4d} {params.tractmaps} &> {log}'
 
@@ -139,7 +139,8 @@ rule transform_tractmaps_to_template:
     group: 'participant2'
     threads: 8
     resources:
-        mem = 32000 
+        mem_mb = 32000,
+        time = 120
     shell:
         'mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp} -t {input.affine} &> {log} :::  {params.in_tractmaps} :::+ {params.out_tractmaps}' 
 
@@ -155,7 +156,7 @@ rule combine_tractmaps_warped:
     log: 'logs/combine_tractmaps_warped/sub-{subject}_template-{template}_{seed}_k-{k}.log'
     container: config['singularity']['neuroglia']
     resources:
-        mem = 32000 
+        mem_mb = 32000 
     group: 'participant2'
     shell:
         'fslmerge -t {output.tractmaps_4d} {params.tractmaps} &> {log}'
@@ -173,7 +174,7 @@ rule avg_tractmaps_template:
     group: 'group2'
     threads: 8
     resources:
-        mem = 32000 
+        mem_mb = 32000 
     shell:
         'AverageImages 4 {output} 0 {input}'
              
@@ -192,7 +193,7 @@ rule vote_tractmap_template:
     group: 'group2'
     threads: 8
     resources:
-        mem = 32000
+        mem_mb = 32000
     shell: 
         #get first vol, set it to bg_th value, this becomes image 0
         # then load all the tractmaps as images 1-k
