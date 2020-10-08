@@ -4,9 +4,10 @@ participants_tsv: 'config/participants.tsv'
 
 #singularity containers:
 singularity:
-  neuroglia: docker://khanlab/neuroglia-core:latest
+  neuroglia: /project/6050199/akhanf/singularity/bids-apps/khanlab_neuroglia-core_latest.sif
   freesurfer: /project/6050199/akhanf/singularity/bids-apps/khanlab_freesurfer_v6.0.1-subfields.img
   connectome_workbench: /project/6007967/software/transparentsingularity/connectome-workbench_1.4.1_20191117.simg/connectome-workbench_1.4.1_20191117.simg 
+  fsl_cuda: /project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif
 
 #path to your freesurfer license file:
 fs_license: /project/6050199/akhanf/opt/freesurfer/.license
