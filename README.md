@@ -19,9 +19,9 @@ Singularity containers required:
  - Freesurfer (for `mri_convert`, `mris_convert`, `mri_info`)
  - Connectome workbench
  - Neuroglia (contains FSL, ANTS, gnu parallel etc..)
- - TODO: Create container with `probtrackx_gpu`, `bedpost_gpu`, CUDA
+ - FSL6 with CUDA container 
 
-NOTE: Currently the tractography step in the workflow requires a GPU and requires `probtrackx2_gpu` to be installed on your system. Can be found [here](https://users.fmrib.ox.ac.uk/~moisesf/Probtrackx_GPU/index.html)
+NOTE: Currently the tractography step in the workflow requires a GPU 
  
 
 ## Authors
