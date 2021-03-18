@@ -10,13 +10,13 @@ for centroid in `c3d $in_seg -split -foreach  -centroid -endfor | grep VOX | awk
 do 
     echo $centroid,$i
     i=$((i+1))
-done  > centroids.txt
+done  > centroids_$k.txt
 
 
 i=1;
 temp_segs=""
 c3d $in_seg -scale 0 -o $out_seg
-for line in `sort -r centroids.txt`
+for line in `sort -r centroids_$k.txt`
 do
     echo $line
     in_lbl=${line##*,}
