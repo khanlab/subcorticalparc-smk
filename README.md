@@ -27,6 +27,8 @@ NOTE: Currently the tractography step in the workflow requires a GPU and require
 # RECOMMENDED EXECUTION: 
 snakemake -np --profile cc-slurm --group-components participant1=30 participant2=30 group1=10 group2=10
 
+ - the above will group e.g. 30 participants into a single job (for participant1/participant2 stages) and up to 10 different k clustering variants (for group1/group2 stages)
+
 
 ## Authors
 
