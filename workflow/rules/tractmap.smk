@@ -3,7 +3,6 @@
 rule transform_clus_to_subj:
     input: 
         cluster_k = expand(bids(root='results/diffparc',template='{template}',label='{seed}',from_='group',method='spectralcosine',k='{k}',desc='sorted',suffix='dseg.nii.gz'),k=range(2,config['max_k']+1),allow_missing=True),
-        affine =  config['ants_affine_mat'],
         invwarp =  config['ants_invwarp_nii'],
         ref = bids(root='results/diffparc',subject='{subject}',space='individual',label=config['targets_atlas_name'],suffix='dseg.nii.gz')
     output: 
@@ -14,7 +13,7 @@ rule transform_clus_to_subj:
     group: 'participant2'
     threads: 8
     shell:
-        'ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {{1}} -o {{2}}  -r {input.ref} -t [{input.affine},1] -t {input.invwarp} &> {log} :::  {input.cluster_k} :::+ {output.cluster_k}' 
+        'ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {{1}} -o {{2}}  -r {input.ref}  -t {input.invwarp} &> {log} :::  {input.cluster_k} :::+ {output.cluster_k}' 
 
 
 
@@ -90,16 +89,16 @@ rule track_from_clusters:
         probtrack_dir = directory(bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack')),
     threads: 8
     resources:
-        mem_mb = 8000,
+        mem_mb = 32000,  #set to 64000 to ensure only 2 instances can run per node 
         time = 30, #30 mins
-        gpus = 1 #1 gpu
+#        gpus = 1 #1 gpu
     log: 'logs/track_from_clusters/sub-{subject}_template-{template}_{seed}_k-{k}.log'
     group: 'participant2'
     shell:
         #this job runs probtrack for each seed
         'mkdir -p {params.out_track_dirs} && '
-        ' parallel --jobs 1 '
-        '   singularity exec -e --nv {params.container} probtrackx2_gpu --samples={params.bedpost_merged}  --mask={input.mask} --seed={{1}} '
+        ' parallel --jobs {threads} '
+        '   singularity exec -e --nv {params.container} probtrackx2 --samples={params.bedpost_merged}  --mask={input.mask} --seed={{1}} '
         '    --seedref={{1}} --nsamples={params.nsamples} '
         '    --dir={{2}} {params.probtrack_opts} -V 2  &> {log}  '
         ' ::: {params.seeds} :::+ {params.out_track_dirs}'
@@ -127,7 +126,6 @@ rule combine_tractmaps:
 rule transform_tractmaps_to_template:
     input:
         probtrack_dir = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack'),
-        affine =  config['ants_affine_mat'],
         warp =  config['ants_warp_nii'],
         ref = config['ants_ref_nii']
     params:
@@ -143,7 +141,7 @@ rule transform_tractmaps_to_template:
         mem_mb = 32000,
         time = 120
     shell:
-        'mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp} -t {input.affine} &> {log} :::  {params.in_tractmaps} :::+ {params.out_tractmaps}' 
+        'mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp}  &> {log} :::  {params.in_tractmaps} :::+ {params.out_tractmaps}' 
 
 
 # space-{template}, tractography 4d?
