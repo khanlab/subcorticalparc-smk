@@ -1,15 +1,38 @@
+
 #needed since std meshes sometimes use L/R instead of lh/rh
+#hemi_to_H = dict({'lh': 'L', 'rh': 'R'})
 H_to_hemi = dict({'L': 'lh', 'R': 'rh'})
 
 wildcard_constraints:
     surfname='white|pial|sphere.reg',
     volname='T1'
 
+
+
 hemis = 'L R'.split()
 
 
+rule extract_from_tar:
+    input: 
+        tar = config['in_freesurfer_tar']
+    params:
+        out_folder = config['in_freesurfer_root'],
+        file_in_tar = 'sub-{subject}/{modality}/{filename}'
+    output: 
+        filename = join(config['in_freesurfer'],'{modality,surf|mri}','{filename}')
+    group: 'participant1'
+    shell: 'mkdir -p {params.out_folder} && tar -C {params.out_folder} --extract --file={input.tar} {params.file_in_tar}'
+
+
+def get_gifti_input (wildcards):
+    if wildcards.surfname == 'pial': #add .T1 to the name (since pial is a symlink to pial.T1) so can use if extracting from tar
+        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}.T1'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
+    else:
+        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
+        
+    
 rule convert_to_gifti:
-    input: lambda wildcards: join(config['in_freesurfer'],'surf','{hemi}.{surfname}'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
+    input: get_gifti_input
     output: bids(root='results/hcp_mmp',subject='{subject}',hemi='{hemi}',suffix='{surfname}.surf.gii',space='fsaverage')
     params: 
         license = config['fs_license']
@@ -58,7 +81,7 @@ rule gen_midthickness:
         white = bids(root='results/hcp_mmp',subject='{subject}',hemi='{hemi}',suffix='white.surf.gii',space='{space}'),
         pial = bids(root='results/hcp_mmp',subject='{subject}',hemi='{hemi}',suffix='pial.surf.gii',space='{space}')
     output: 
-        midthickness = bids(root='results/hcp_mmp',subject='{subject}',hemi='{hemi}',suffix='midthickness.surf.gii',space='{space,fsaverage|native}')
+        midthickness = bids(root='results/hcp_mmp',subject='{subject}',hemi='{hemi}',suffix='midthickness.surf.gii',space='{space}')
     container: config['singularity']['connectome_workbench']
     threads: 8
     log: 'logs/gen_midthickness/sub-{subject}_{hemi}_{space}.log'
@@ -145,5 +168,6 @@ rule map_labels_to_volume_wmboundary:
         'wb_command -label-to-volume-mapping {input.label} {input.surf} {input.vol_ref} {output.label_vol}'
         ' -nearest-vertex {params.nearest_vertex} &> {log}'
  
+
 
 
