@@ -48,7 +48,6 @@ rule binarize_template_seed:
 rule transform_to_subject:
     input: 
         seed = bids(root='results/diffparc',template='{template}',label='{seed}',suffix='probseg.nii.gz'),
-        affine =  config['ants_affine_mat'],
         invwarp =  config['ants_invwarp_nii'],
         ref = bids(root='results/diffparc',subject='{subject}',space='individual',label=config['targets_atlas_name'],suffix='dseg.nii.gz')
     output: 
@@ -59,7 +58,7 @@ rule transform_to_subject:
     group: 'participant1'
     threads: 8
     shell:
-        'antsApplyTransforms -d 3 --interpolation Linear -i {input.seed} -o {output} -r {input.ref} -t [{input.affine},1] -t {input.invwarp} &> {log}'
+        'antsApplyTransforms -d 3 --interpolation Linear -i {input.seed} -o {output} -r {input.ref}  -t {input.invwarp} &> {log}'
 
 #create brainmask from bedpost data, and resample to chosen resolution
 #space-T1w res-? mask
@@ -193,7 +192,6 @@ rule run_probtrack:
 rule transform_conn_to_template:
     input:
         probtrack_dir = bids(root='results/diffparc',subject='{subject}',label='{seed}',from_='{template}',suffix='probtrack'),
-        affine =  config['ants_affine_mat'],
         warp =  config['ants_warp_nii'],
         ref = config['ants_ref_nii']
     params:
@@ -209,7 +207,7 @@ rule transform_conn_to_template:
     log: 'logs/transform_conn_to_template/sub-{subject}_{seed}_{template}.log'
     group: 'participant1'
     shell:
-        'mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp} -t {input.affine} &> {log} :::  {params.in_connmap_3d} :::+ {params.out_connmap_3d}' 
+        'mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp}  &> {log} :::  {params.in_connmap_3d} :::+ {params.out_connmap_3d}' 
 
 
 #check bids-deriv -- connectivity?
@@ -257,13 +255,16 @@ rule spectral_clustering:
 #sorting the cluster label by AP, sorted = desc
 rule sort_cluster_label:
     input:
-        seg = bids(root='results/diffparc',template='{template}',label='{seed}',from_='group',method='spectralcosine',k='{k}',suffix='dseg.nii.gz')
+        seg = bids(root='results/diffparc',template='{template}',label='{seed}',from_='group',method='spectralcosine',k='{k}',suffix='dseg.nii.gz'),
+        shell_script = 'workflow/scripts/sort_labels_by_ap.sh'
     output:
         seg = bids(root='results/diffparc',template='{template}',label='{seed}',from_='group',method='spectralcosine',k='{k}',desc='sorted',suffix='dseg.nii.gz'),
     container: config['singularity']['neuroglia']
     group: 'group1'
+    log: 'logs/sort_cluster_label/{seed}_{template}_{k}.log'
+    shadow: 'minimal' #run in shadow dir to avoid conflicts between centroids txt files
     shell:
-        'workflow/scripts/sort_labels_by_ap.sh {input.seg} {output.seg} {wildcards.k}'
+        '{input.shell_script} {input.seg} {output.seg} {wildcards.k} &> {log}'
  
 
 

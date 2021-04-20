@@ -1,12 +1,13 @@
 
-participants_tsv: 'config/middle1participants.tsv'
+#test list with 5 subjects (1 each camcan cohort)
+participants_tsv: 'config/test_camcan.tsv'
 
 
 #singularity containers:
 singularity:
   neuroglia: /project/6050199/akhanf/singularity/bids-apps/khanlab_neuroglia-core_latest.sif
   freesurfer: /project/6050199/akhanf/singularity/bids-apps/khanlab_freesurfer_v6.0.1-subfields.img
-  connectome_workbench: /project/6007967/software/transparentsingularity/connectome-workbench_1.4.1_20191117.simg/connectome-workbench_1.4.1_20191117.simg 
+  connectome_workbench: /project/6050199/akhanf/singularity/bids-apps/khanlab_connectome-workbench_latest.sif
 
 #path to your freesurfer license file:
 fs_license: /project/6050199/akhanf/opt/freesurfer/.license
@@ -18,23 +19,22 @@ fs_license: /project/6050199/akhanf/opt/freesurfer/.license
 
 #path to subject freesurfer dir (containing surf/ and mri/ subfolders) 
 # use the {subject} wildcard here.. 
-
-in_freesurfer: /scratch/sudesnac/CamCAN/freesurfer/sub-{subject}
-
+in_freesurfer: 'freesurfer/sub-{subject}'
+in_freesurfer_root: 'freesurfer'
+in_freesurfer_tar: /project/6050199/akhanf/ext-bids/cam-can/deriv/freesurfer_7.1/sub-{subject}.tar
 
 
 template_prob_seg: 
-  fullBF: 'resources/CamCAN_middle1_fullBF_B.nii.gz'
+  fullBF: 'resources/tpl-MNI152NLin2009cAsym_desc-STAPLEfullBF_mask.nii.gz'
 
 #to apply to masks in target space before tracking, and template-space before grouping..
 prob_seg_threshold: 0.5
 
 
-template: CamCANmiddle1
-ants_affine_mat: /scratch/sudesnac/CamCAN/camcan_template/results/cohort-middle1/iter_8/sub-{subject}_0GenericAffine.mat
-ants_invwarp_nii: /scratch/sudesnac/CamCAN/camcan_template/results/cohort-middle1/iter_8/sub-{subject}_1InverseWarp.nii.gz
-ants_warp_nii: /scratch/sudesnac/CamCAN/camcan_template/results/cohort-middle1/iter_8/sub-{subject}_1Warp.nii.gz
-ants_ref_nii: /scratch/sudesnac/CamCAN/camcan_template/results/cohort-middle1/iter_8/template_T1w.nii.gz
+template: MNI152NLin2009cAsym
+ants_invwarp_nii: /scratch/akhanf/3_processing/sudesna/greedy_build_template_camcan/results/composite/sub-{subject}_to-{template}_via-cohort_CompositeInverseWarp.nii.gz
+ants_warp_nii: /scratch/akhanf/3_processing/sudesna/greedy_build_template_camcan/results/composite/sub-{subject}_to-{template}_via-cohort_CompositeWarp.nii.gz
+ants_ref_nii: /scratch/akhanf/3_processing/sudesna/greedy_build_template_camcan/resources/templateflow/tpl-{template}/tpl-{template}_res-01_desc-brain_T1w.nii.gz
 
 #list of ROIs in target segmentations 
 targets_dseg_tsv: resources/label-hcpmmp180_dseg.tsv
@@ -60,7 +60,7 @@ probtrack:
 
 
 probtrack_tractmap:
-    seed_resolution: 0.5
+    seed_resolution: 1
     res_name: super #bids deriv filename will have res-{res_name}
     nsamples: 1000
     opts: '--loopcheck --onewaycondition --cthr=0.2 --nsteps=2000 --steplength=0.5  --fibthresh=0.01 --distthresh=0.0 --sampvox=0.0 --forcedir --opd --randfib=2' 

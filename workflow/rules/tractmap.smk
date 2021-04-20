@@ -3,7 +3,6 @@
 rule transform_clus_to_subj:
     input: 
         cluster_k = expand(bids(root='results/diffparc',template='{template}',label='{seed}',from_='group',method='spectralcosine',k='{k}',desc='sorted',suffix='dseg.nii.gz'),k=range(2,config['max_k']+1),allow_missing=True),
-        affine =  config['ants_affine_mat'],
         invwarp =  config['ants_invwarp_nii'],
         ref = bids(root='results/diffparc',subject='{subject}',space='individual',label=config['targets_atlas_name'],suffix='dseg.nii.gz')
     output: 
@@ -14,7 +13,7 @@ rule transform_clus_to_subj:
     group: 'participant2'
     threads: 8
     shell:
-        'ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {{1}} -o {{2}}  -r {input.ref} -t [{input.affine},1] -t {input.invwarp} &> {log} :::  {input.cluster_k} :::+ {output.cluster_k}' 
+        'ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {{1}} -o {{2}}  -r {input.ref}  -t {input.invwarp} &> {log} :::  {input.cluster_k} :::+ {output.cluster_k}' 
 
 
 
@@ -53,6 +52,8 @@ rule resample_clus_seed:
 
 
 
+"""
+
 #split segmentation into binary masks
 # space-T1w   mask
 rule subj_split_clus_to_binary_masks:
@@ -62,7 +63,7 @@ rule subj_split_clus_to_binary_masks:
         mask_file = lambda wildcards, output: bids(root=output.cluster_k_splitdir,subject=wildcards.subject,label='%02d',suffix='mask.nii.gz',include_subject_dir=False),
         mask_bg = lambda wildcards, output: bids(root=output.cluster_k_splitdir,subject=wildcards.subject,label='00',suffix='mask.nii.gz',include_subject_dir=False) #we remove this file 
     output:
-        cluster_k_splitdir = directory(bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',desc='sorted',suffix='seeds'))
+        seed_label = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',desc='sorted',kindex='{kindex}',suffix='seed.nii.gz')
     container: config['singularity']['neuroglia']
     log: 'logs/subj_split_clus_to_binary_masks/sub-{subject}_template-{template}_{seed}_k-{k}.log'
     group: 'participant2'
@@ -71,46 +72,41 @@ rule subj_split_clus_to_binary_masks:
         #use c3d's split command to go from discrete seg image to multiple binary images.. we remove image 00 since that is the background label
         'mkdir {output.cluster_k_splitdir} && c3d {input.cluster_k} -split -oo {params.mask_file} &>> {log}  && rm -f {params.mask_bg}'
 
+"""
 
 #perform tracking from each cluster in subj space to get tract maps
-# check bids-deriv dwi - tractography type?
-# space-T1w, res-?
 rule track_from_clusters:
     input:
-        cluster_k_splitdir = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',desc='sorted',suffix='seeds'),
+        cluster_k = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',desc='sorted',suffix='dseg.nii.gz'),
         mask = bids(root='results/tractmap',subject='{subject}',label='brain',suffix='mask.nii.gz'),
     params:
-        seeds = lambda wildcards, input: expand(bids(root=input.cluster_k_splitdir,subject=wildcards.subject,label='{k_index:02d}',suffix='mask.nii.gz',include_subject_dir=False), k_index=range(1,int(wildcards.k)+1)),
         bedpost_merged = join(config['fsl_bedpost_dir'],config['bedpost_merged_prefix']),
         probtrack_opts = config['probtrack_tractmap']['opts'],
         nsamples = config['probtrack_tractmap']['nsamples'],
-        out_track_dirs = lambda wildcards,output: expand('{}/label-{{k_index:02d}}'.format(output.probtrack_dir),k_index=range(1,int(wildcards.k)+1)),
-        container = '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
+        extract_seed_cmd = lambda wildcards, input, output: f'fslmaths {input.cluster_k} -thr {wildcards.kindex} -uthr {wildcards.kindex} {output.probtrack_dir}/in_seed.nii.gz' 
     output:
-        probtrack_dir = directory(bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack')),
-    threads: 8
+        probtrack_dir = directory(bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack',kindex='{kindex}')),
+        tractmap = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack/fdt_paths.nii.gz',kindex='{kindex}'),
+    threads: 1
     resources:
-        mem_mb = 8000,
+        mem_mb = 4000,  #set to 64000 to ensure only 2 instances can run per node 
         time = 30, #30 mins
-        gpus = 1 #1 gpu
-    log: 'logs/track_from_clusters/sub-{subject}_template-{template}_{seed}_k-{k}.log'
+#        gpus = 1 #1 gpu
+    log: 'logs/track_from_clusters/sub-{subject}_template-{template}_{seed}_k-{k}_kindex-{kindex}.log'
     group: 'participant2'
+    container: '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
     shell:
-        #this job runs probtrack for each seed
-        'mkdir -p {params.out_track_dirs} && '
-        ' parallel --jobs 1 '
-        '   singularity exec -e --nv {params.container} probtrackx2_gpu --samples={params.bedpost_merged}  --mask={input.mask} --seed={{1}} '
-        '    --seedref={{1}} --nsamples={params.nsamples} '
-        '    --dir={{2}} {params.probtrack_opts} -V 2  &> {log}  '
-        ' ::: {params.seeds} :::+ {params.out_track_dirs}'
+        'mkdir -p {output.probtrack_dir} && '
+        '{params.extract_seed_cmd} && '
+        'probtrackx2 --samples={params.bedpost_merged}  --mask={input.mask} --seed={output.probtrack_dir}/in_seed.nii.gz '
+        '    --seedref={output.probtrack_dir}/in_seed.nii.gz --nsamples={params.nsamples} '
+        '    --dir={output.probtrack_dir} {params.probtrack_opts} -V 2  &> {log}'
 
 # check bids-deriv dwi - tractography ?
 # space-T1w, res-?
 rule combine_tractmaps:
     input:
-        probtrack_dir = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack')
-    params:
-        tractmaps = lambda wildcards,input: expand('{}/label-{{k_index:02d}}/fdt_paths.nii.gz'.format(input.probtrack_dir),k_index=range(1,int(wildcards.k)+1)),
+        tractmaps = lambda wildcards: expand(bids(root='results/tractmap',subject=f'{wildcards.subject}',space='individual',label=f'{wildcards.seed}',method='spectralcosine',k=f'{wildcards.k}',from_=f'{wildcards.template}',res='super',suffix='probtrack/fdt_paths.nii.gz',kindex='{kindex}'),kindex=range(1,int(wildcards.k)+1))
     output:
         tractmaps_4d = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='tractmap4d.nii.gz')
     log: 'logs/combine_tractmaps/sub-{subject}_template-{template}_{seed}_k-{k}.log'
@@ -119,39 +115,33 @@ rule combine_tractmaps:
     resources:
         mem_mb = 32000 
     shell:
-        'fslmerge -t {output.tractmaps_4d} {params.tractmaps} &> {log}'
+        'fslmerge -t {output.tractmaps_4d} {input.tractmaps} &> {log}'
 
 
 #transform tract maps back to template space
 # space-{template}, tractogrpahy?
 rule transform_tractmaps_to_template:
     input:
-        probtrack_dir = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack'),
-        affine =  config['ants_affine_mat'],
+        tractmap = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack/fdt_paths.nii.gz',kindex='{kindex}'),
         warp =  config['ants_warp_nii'],
         ref = config['ants_ref_nii']
-    params:
-        in_tractmaps = lambda wildcards,input: expand('{}/label-{{k_index:02d}}/fdt_paths.nii.gz'.format(input.probtrack_dir),k_index=range(1,int(wildcards.k)+1)),
-        out_tractmaps = lambda wildcards,output: expand('{}/label-{{k_index:02d}}_tractmap.nii.gz'.format(output.probtrack_dir),k_index=range(1,int(wildcards.k)+1))
     output:
-        probtrack_dir = directory(bids(root='results/tractmap',subject='{subject}',label='{seed}',method='spectralcosine',k='{k}',space='{template}',suffix='probtrack')),
+        tractmap = bids(root='results/tractmap',subject='{subject}',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',space='{template}',suffix='tractmap.nii.gz',kindex='{kindex}')
     container: config['singularity']['neuroglia']
-    log: 'logs/transform_tractmaps_to_template/sub-{subject}_{seed}_{template}_k-{k}.log'
+    log: 'logs/transform_tractmaps_to_template/sub-{subject}_{seed}_{template}_k-{k}_kindex-{kindex}.log'
     group: 'participant2'
     threads: 8
     resources:
         mem_mb = 32000,
-        time = 120
+        time = 10
     shell:
-        'mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp} -t {input.affine} &> {log} :::  {params.in_tractmaps} :::+ {params.out_tractmaps}' 
+        'ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1  antsApplyTransforms -d 3 --interpolation Linear -i {input.tractmap} -o {output.tractmap}  -r {input.ref} -t {input.warp}  &> {log}'
 
 
 # space-{template}, tractography 4d?
 rule combine_tractmaps_warped:
     input:
-        probtrack_dir = bids(root='results/tractmap',subject='{subject}',label='{seed}',method='spectralcosine',k='{k}',space='{template}',suffix='probtrack')
-    params:
-        tractmaps = lambda wildcards,input: expand('{}/label-{{k_index:02d}}_tractmap.nii.gz'.format(input.probtrack_dir),k_index=range(1,int(wildcards.k)+1))
+        tractmaps = lambda wildcards: expand(bids(root='results/tractmap',subject=f'{wildcards.subject}',label=f'{wildcards.seed}',method='spectralcosine',k=f'{wildcards.k}',from_=f'{wildcards.template}',res='super',space=f'{wildcards.template}',suffix='tractmap.nii.gz',kindex='{kindex}'),kindex=range(1,int(wildcards.k)+1))
     output:
         tractmaps_4d = bids(root='results/tractmap',subject='{subject}',label='{seed}',method='spectralcosine',k='{k}',space='{template}',suffix='tractmap4d.nii.gz')
     log: 'logs/combine_tractmaps_warped/sub-{subject}_template-{template}_{seed}_k-{k}.log'
@@ -160,7 +150,7 @@ rule combine_tractmaps_warped:
         mem_mb = 32000 
     group: 'participant2'
     shell:
-        'fslmerge -t {output.tractmaps_4d} {params.tractmaps} &> {log}'
+        'fslmerge -t {output.tractmaps_4d} {input.tractmaps} &> {log}'
 
 
 
