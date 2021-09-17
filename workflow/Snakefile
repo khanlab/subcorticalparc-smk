@@ -37,6 +37,6 @@ rule all_diffparc:
     input:
       group_tractseg = expand(bids(root='results/tractmap',template='{template}',label='{seed}',method='spectralcosine',k='{k}',desc='avgtractmap',suffix='dseg.nii.gz'),template=config['template'],seed=seeds,k=range(2,config['max_k']+1))
 
-include: 'rules/hcp_mmp.smk'
+#include: 'rules/hcp_mmp.smk'
 include: 'rules/diffparc.smk'
 include: 'rules/tractmap.smk'
