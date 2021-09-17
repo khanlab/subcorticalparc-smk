@@ -3,7 +3,7 @@
 subject=$1
 
 
-module load fsl
+module load gcc/9.3.0 fsl
 
 #copy everything to tmpdir
 cp -Rv results config resources workflow $SLURM_TMPDIR
