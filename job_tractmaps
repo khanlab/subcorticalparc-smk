@@ -1,0 +1,25 @@
+#!/bin/bash
+
+subject=$1
+
+
+module load fsl
+
+#copy everything to tmpdir
+cp -Rv results config resources workflow $SLURM_TMPDIR
+
+pushd $SLURM_TMPDIR
+snakemake --touch -j1  #touch the files to make sure 
+
+targets=''
+for k in `seq 2 7`
+do
+    targets="$targets results/tractmap/${subject}/${subject}_space-MNI152NLin6Asym_label-fullBF_method-spectralcosine_k-${k}_tractmap4d.nii.gz"
+done
+
+snakemake --use-singularity --singularity-args='\-e' --singularity-prefix /project/6050199/akhanf/singularity/snakemake_containers/ --rerun-incomplete --keep-going --show-failed-logs --resources gpus=1 -j8 $targets
+popd
+
+#copy tractmap results from tmpdir to this dir
+mkdir -p results/tractmap 
+cp -Rv $SLURM_TMPDIR/results/tractmap/${subject} results/tractmap/
