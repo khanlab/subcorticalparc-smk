@@ -6,7 +6,10 @@ subject=$1
 module load gcc/9.3.0 fsl
 
 #copy everything to tmpdir
-cp -Rv results config resources workflow $SLURM_TMPDIR
+mkdir -p $SLURM_TMPDIR/results
+cp -Rv config resources workflow $SLURM_TMPDIR
+cp -Rv results/${subject} $SLURM_TMPDIR/results/
+cp -Rv results/tpl* $SLURM_TMPDIR/results/
 
 pushd $SLURM_TMPDIR
 snakemake --touch -j1  #touch the files to make sure 
