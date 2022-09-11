@@ -132,7 +132,7 @@ rule split_targets:
     input: 
         targets = bids(root='results/diffparc',subject='{subject}',space='individual',label=config['targets_atlas_name'],res='dwi',suffix='dseg.nii.gz')
     params:
-        target_nums = lambda wildcards: [str(i) for i in range(len(targets))],
+        target_nums = lambda wildcards: [str(i+1) for i in range(len(targets))],
         target_seg = lambda wildcards, output: expand('{target_seg_dir}/sub-{subject}_label-{target}_mask.nii.gz',target_seg_dir=output.target_seg_dir,subject=wildcards.subject,target=targets)
     output:
         target_seg_dir = directory(bids(root='results/diffparc',subject='{subject}',suffix='targets'))
