@@ -1,6 +1,6 @@
 
 #test list with 5 subjects (1 each camcan cohort)
-participants_tsv: 'config/hcptestparticipants.tsv'
+participants_tsv: 'config/hcp7Tparticipants.tsv'
 
 
 #singularity containers:
@@ -41,9 +41,9 @@ targets_dseg_tsv: resources/label-hcpmmp180_dseg.tsv
 targets_atlas_name: hcpmmp180 #must be [a-zA-Z0-9]+
 
 #bedpost
-fsl_bedpost_dir: /project/6050199/akhanf/ext-bids/hcpUR100_3T/deriv_nhandfield/1_fakeprepdwi/bedpost
-bedpost_mean_s0_samples: 'sub-{subject}/mean_S0samples.nii.gz'
-bedpost_merged_prefix: 'sub-{subject}/merged'
+fsl_bedpost_dir: /project/6050199/ext-data/hcp1200/HCP_1200_T1w_Diffusion_FS
+bedpost_mean_s0_samples: '{subject}/T1w/Diffusion_7T.bedpostX/mean_S0samples.nii.gz'
+bedpost_merged_prefix: '{subject}/T1w/Diffusion_7T.bedpostX/merged'
 
 #maximum number of clusters in spectral clustering
 # will perform with k=range(2,max_k+1)
