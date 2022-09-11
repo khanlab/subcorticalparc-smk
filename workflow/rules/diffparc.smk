@@ -174,9 +174,9 @@ rule run_probtrack:
         container = '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
     output:
         probtrack_dir = directory(bids(root='results/diffparc',subject='{subject}',label='{seed}',from_='{template}',suffix='probtrack'))
-    threads: 8
+    threads: 32
     resources:
-        mem_mb = 8000,
+        mem_mb = 128000,
         time = 30, #30 mins
         gpus = 1 #1 gpu
     log: 'logs/run_probtrack/sub-{subject}_{seed}_{template}.log'

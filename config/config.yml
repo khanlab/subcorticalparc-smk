@@ -1,7 +1,8 @@
 
-#test list with 5 subjects (1 each camcan cohort)
 participants_tsv: 'config/hcp7Tparticipants.tsv'
 
+#test list with 5 subjects (1 each camcan cohort)
+#participants_tsv: 'config/hcptestparticipants.tsv'
 
 #singularity containers:
 singularity:
