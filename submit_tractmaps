@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [ "$#" -lt 1 ]
+then 
+echo "Usage: $0 <participants_tsv>"
+exit 1
+fi
+
+in_tsv=$1
+
+#tail -n +2 is used to skip the first line
+for subject in `tail -n +2 $1`
+do
+    kbatch 3:00 8 32G gpu -a ctb-akhanf_gpu . ./job_tractmaps ${subject}
+    sleep 2
+done
+

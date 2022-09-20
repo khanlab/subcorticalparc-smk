@@ -51,9 +51,7 @@ rule resample_clus_seed:
         'reg_resample -flo {input.seed} -res {output.seed_res} -ref {input.mask_res} -NN 0 &> {log}'
 
 
-
 """
-
 #split segmentation into binary masks
 # space-T1w   mask
 rule subj_split_clus_to_binary_masks:
@@ -71,7 +69,6 @@ rule subj_split_clus_to_binary_masks:
     shell:
         #use c3d's split command to go from discrete seg image to multiple binary images.. we remove image 00 since that is the background label
         'mkdir {output.cluster_k_splitdir} && c3d {input.cluster_k} -split -oo {params.mask_file} &>> {log}  && rm -f {params.mask_bg}'
-
 """
 
 #perform tracking from each cluster in subj space to get tract maps
@@ -83,24 +80,25 @@ rule track_from_clusters:
         bedpost_merged = join(config['fsl_bedpost_dir'],config['bedpost_merged_prefix']),
         probtrack_opts = config['probtrack_tractmap']['opts'],
         nsamples = config['probtrack_tractmap']['nsamples'],
-        extract_seed_cmd = lambda wildcards, input, output: f'fslmaths {input.cluster_k} -thr {wildcards.kindex} -uthr {wildcards.kindex} {output.probtrack_dir}/in_seed.nii.gz' 
+        extract_seed_cmd = lambda wildcards, input, output: f'fslmaths {input.cluster_k} -thr {wildcards.kindex} -uthr {wildcards.kindex} {output.probtrack_dir}/in_seed.nii.gz',
+        container = '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
     output:
         probtrack_dir = directory(bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack',kindex='{kindex}')),
         tractmap = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack/fdt_paths.nii.gz',kindex='{kindex}'),
     threads: 1
     resources:
-        mem_mb = 4000,  #set to 64000 to ensure only 2 instances can run per node 
-        time = 30, #30 mins
-#        gpus = 1 #1 gpu
+        mem_mb = 64000,  #set to 64000 to ensure only 2 instances can run per node 
+        time = 360, 
+        gpus = 1 #1 gpu
     log: 'logs/track_from_clusters/sub-{subject}_template-{template}_{seed}_k-{k}_kindex-{kindex}.log'
     group: 'participant2'
-    container: '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
+#    container: '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
     shell:
         'mkdir -p {output.probtrack_dir} && '
-        '{params.extract_seed_cmd} && '
-        'probtrackx2 --samples={params.bedpost_merged}  --mask={input.mask} --seed={output.probtrack_dir}/in_seed.nii.gz '
-        '    --seedref={output.probtrack_dir}/in_seed.nii.gz --nsamples={params.nsamples} '
-        '    --dir={output.probtrack_dir} {params.probtrack_opts} -V 2  &> {log}'
+        '{params.extract_seed_cmd} && singularity exec -e --nv {params.container} '
+        'probtrackx2_gpu --samples={params.bedpost_merged}  --mask={input.mask} --seed={output.probtrack_dir}/in_seed.nii.gz '
+        '--seedref={output.probtrack_dir}/in_seed.nii.gz --nsamples={params.nsamples} '
+        '--dir={output.probtrack_dir} {params.probtrack_opts} -V 2  &> {log}'
 
 # check bids-deriv dwi - tractography ?
 # space-T1w, res-?
@@ -190,5 +188,3 @@ rule vote_tractmap_template:
         # then load all the tractmaps as images 1-k
         # then vote amongst the 0-k images, those where bg (bg_th) is highest get set to 0, otherwise set to the index (from 1-k)
         'c4d -verbose {input.tractmaps} -slice w 0:0 -threshold -inf +inf {params.bg_th} 0 {input.tractmaps} -slice w 0:-1  -vote -type uchar {output.vote_seg} &> {log}' 
-
-

@@ -17,18 +17,23 @@ rule extract_from_tar:
         tar = config['in_freesurfer_tar']
     params:
         out_folder = config['in_freesurfer_root'],
-        file_in_tar = 'sub-{subject}/{modality}/{filename}'
+        file_in_tar = '{subject}/{modality}/{filename}'
     output: 
         filename = join(config['in_freesurfer'],'{modality,surf|mri}','{filename}')
+    threads: 8
+    shadow: 'minimal'
     group: 'participant1'
-    shell: 'mkdir -p {params.out_folder} && tar -C {params.out_folder} --extract --file={input.tar} {params.file_in_tar}'
+    shell: 
+        'mkdir -p {params.out_folder} && tar --extract --file={input.tar} {params.file_in_tar} && '
+        'mv {params.file_in_tar} {output.filename}'
 
 
 def get_gifti_input (wildcards):
-    if wildcards.surfname == 'pial': #add .T1 to the name (since pial is a symlink to pial.T1) so can use if extracting from tar
-        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}.T1'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
-    else:
-        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
+#    if wildcards.surfname == 'pial': #add .T1 to the name (since pial is a symlink to pial.T1) so can use if extracting from tar
+#        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}.T1'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
+#    else:
+#        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
+     return join(config['in_freesurfer'],'surf','{hemi}.{surfname}'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
         
     
 rule convert_to_gifti:
