@@ -16,8 +16,8 @@ targets = df_targets.name.to_list()
 
 
 
-#get seeds, as keys in template_prob_seg
-seeds = config['template_prob_seg'].keys()
+#get seeds, as keys in template_binary_mask
+seeds = config['template_binary_mask'].keys()
 
 
 #bids-naming for subject and template (only alphanumeric characters)

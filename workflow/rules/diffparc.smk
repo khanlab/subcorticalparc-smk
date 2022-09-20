@@ -13,32 +13,28 @@ rule combine_lr_hcp:
     shell: 'fslmaths {input.lh} -max {input.rh} {output.lh_rh} &> {log}'
 
 
-#space-{template}, probseg
-rule get_template_seed:
-    input: 
-        seed = lambda wildcards: config['template_prob_seg'][wildcards.seed],
-    output: bids(root='results/diffparc',template='{template}',label='{seed}',suffix='probseg.nii.gz')
-    container: config['singularity']['neuroglia']
-    log: 'logs/get_template_seed/{template}_{seed}.log'
-    group: 'group0'
-    shell:
-        'cp -v {input} {output} &> {log}'
- 
-
 # mask
-rule binarize_template_seed:
+rule get_binary_template_seed:
     input: 
-        seed = bids(root='results/diffparc',template='{template}',label='{seed}',suffix='probseg.nii.gz')
-    params:
-        threshold = config['prob_seg_threshold']
+        seed = lambda wildcards: config['template_binary_mask'][wildcards.seed]
     output: 
         mask = bids(root='results/diffparc',template='{template}',label='{seed}',suffix='mask.nii.gz')
-    container: config['singularity']['neuroglia']
-    log: 'logs/binarize_template_seed/{template}_{seed}.log'
     group: 'group0'
     shell:
-        'fslmaths {input} -thr {params.threshold} {output} &> {log}'
+        'cp {input} {output}'
         
+
+
+rule dilate_seed:
+    input: 
+        mask = bids(root='results/diffparc',template='{template}',label='{seed}',suffix='mask.nii.gz')
+    output: 
+        seed = bids(root='results/diffparc',template='{template}',label='{seed}',desc='dilatedsmoothed',suffix='mask.nii.gz'),
+    container: config['singularity']['neuroglia']
+    group: 'group0'
+    shell:
+        'c3d {input} -dilate 1 3x3x3vox -o {output}'
+ 
 
 
 
@@ -47,18 +43,18 @@ rule binarize_template_seed:
 #space-T1w,  probseg
 rule transform_to_subject:
     input: 
-        seed = bids(root='results/diffparc',template='{template}',label='{seed}',suffix='probseg.nii.gz'),
+        seed = bids(root='results/diffparc',template='{template}',label='{seed}',desc='dilatedsmoothed',suffix='mask.nii.gz'),
         invwarp =  config['ants_invwarp_nii'],
         ref = bids(root='results/diffparc',subject='{subject}',space='individual',label=config['targets_atlas_name'],suffix='dseg.nii.gz')
     output: 
-        seed = bids(root='results/diffparc',subject='{subject}',space='individual',label='{seed}',from_='{template}',suffix='probseg.nii.gz'),
+        seed = bids(root='results/diffparc',subject='{subject}',space='individual',label='{seed}',from_='{template}',suffix='mask.nii.gz'),
     envmodules: 'ants'
     container: config['singularity']['neuroglia']
     log: 'logs/transform_to_subject/{template}_sub-{subject}_{seed}.log'
     group: 'participant1'
     threads: 8
     shell:
-        'antsApplyTransforms -d 3 --interpolation Linear -i {input.seed} -o {output} -r {input.ref}  -t {input.invwarp} &> {log}'
+        'antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {input.seed} -o {output} -r {input.ref}  -t {input.invwarp} &> {log}'
 
 #create brainmask from bedpost data, and resample to chosen resolution
 #space-T1w res-? mask
@@ -100,31 +96,17 @@ rule resample_targets:
 rule resample_seed:
     input: 
         mask_res = bids(root='results/diffparc',subject='{subject}',label='brain',res='dwi',suffix='mask.nii.gz'),
-        seed = bids(root='results/diffparc',subject='{subject}',space='individual',label='{seed}',from_='{template}',suffix='probseg.nii.gz')
+        seed = bids(root='results/diffparc',subject='{subject}',space='individual',label='{seed}',from_='{template}',suffix='mask.nii.gz')
     output:
-        seed_res = bids(root='results/diffparc',subject='{subject}',space='individual',label='{seed}',from_='{template}',res='dwi',suffix='probseg.nii.gz')
+        seed_res = bids(root='results/diffparc',subject='{subject}',space='individual',label='{seed}',from_='{template}',res='dwi',suffix='mask.nii.gz')
     container: config['singularity']['neuroglia']
     log: 'logs/resample_seed/{template}_sub-{subject}_{seed}.log'
     group: 'participant1'
     shell:
         #linear interp here now, since probabilistic seg
-        'reg_resample -flo {input.seed} -res {output.seed_res} -ref {input.mask_res}  &> {log}'
+        'reg_resample -flo {input.seed} -res {output.seed_res} -ref {input.mask_res} -NN 0 &> {log}'
 
-# space-T1w mask
-rule binarize_subject_seed:
-    input: 
-        seed_res = bids(root='results/diffparc',subject='{subject}',space='individual',label='{seed}',from_='{template}',res='dwi',suffix='probseg.nii.gz')
-    params:
-        threshold = config['prob_seg_threshold']
-    output: 
-        seed_thr = bids(root='results/diffparc',subject='{subject}',space='individual',label='{seed}',from_='{template}',res='dwi',suffix='mask.nii.gz')
-    container: config['singularity']['neuroglia']
-    log: 'logs/binarize_subject_seed/{template}_sub-{subject}_{seed}.log'
-    container: config['singularity']['neuroglia']
-    group: 'participant1'
-    shell:
-        'fslmaths {input} -thr {params.threshold} {output} &> {log}'
-        
+       
 
 
 #space-T1w, mask 
@@ -193,7 +175,7 @@ rule transform_conn_to_template:
     input:
         probtrack_dir = bids(root='results/diffparc',subject='{subject}',label='{seed}',from_='{template}',suffix='probtrack'),
         warp =  config['ants_warp_nii'],
-        ref = config['ants_ref_nii']
+        ref = bids(root='results/diffparc',template='{template}',label='{seed}',suffix='mask.nii.gz')
     params:
         in_connmap_3d = lambda wildcards, input: expand(bids(root=input.probtrack_dir,include_subject_dir=False,subject=wildcards.subject,prefix='seeds_to',label='{target}',suffix='mask.nii.gz'), target=targets),
         out_connmap_3d = lambda wildcards, output: expand(bids(root=output.probtrack_dir,include_subject_dir=False,subject=wildcards.subject,prefix='seeds_to',label='{target}',suffix='mask.nii.gz'), target=targets),
