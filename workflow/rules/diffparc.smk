@@ -56,6 +56,7 @@ rule transform_to_subject:
     shell:
         'antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {input.seed} -o {output} -r {input.ref}  -t {input.invwarp} &> {log}'
 
+
 #create brainmask from bedpost data, and resample to chosen resolution
 #space-T1w res-? mask
 rule resample_brainmask:
@@ -217,7 +218,6 @@ rule gather_connmap_group:
     conda: '../envs/sklearn.yml'
     group: 'group1'
     script: '../scripts/gather_connmap_group.py'
-     
 
 #space-{template},  dseg
 rule spectral_clustering:

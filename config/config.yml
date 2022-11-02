@@ -31,7 +31,7 @@ template_binary_mask:
 
 prob_seg_threshold: 0.5
 
-template: MNI152NLin2009bAsym
+template: MNI152NLin6Asym
 ants_invwarp_nii: /project/6050199/ext-data/hcp1200/deriv/greedy_template_hcp_UR100_1mm_T1T2GMWM_compositewarps/results/composite/sub-{subject}_to-{template}_via-cohort_CompositeInverseWarp.nii.gz
 ants_warp_nii: /project/6050199/ext-data/hcp1200/deriv/greedy_template_hcp_UR100_1mm_T1T2GMWM_compositewarps/results/composite/sub-{subject}_to-{template}_via-cohort_CompositeWarp.nii.gz
 ants_ref_nii: /project/6050199/ext-data/hcp1200/deriv/greedy_template_hcp_UR100_1mm_T1T2GMWM_compositewarps/resources/templateflow/tpl-{template}/tpl-{template}_res-04_desc-brain_T1w.nii.gz
