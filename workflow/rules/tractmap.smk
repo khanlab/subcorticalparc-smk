@@ -50,8 +50,8 @@ rule resample_clus_seed:
         #linear interp here now, since probabilistic seg
         'reg_resample -flo {input.seed} -res {output.seed_res} -ref {input.mask_res} -NN 0 &> {log}'
 
-
 """
+
 #split segmentation into binary masks
 # space-T1w   mask
 rule subj_split_clus_to_binary_masks:
@@ -69,6 +69,8 @@ rule subj_split_clus_to_binary_masks:
     shell:
         #use c3d's split command to go from discrete seg image to multiple binary images.. we remove image 00 since that is the background label
         'mkdir {output.cluster_k_splitdir} && c3d {input.cluster_k} -split -oo {params.mask_file} &>> {log}  && rm -f {params.mask_bg}'
+
+
 """
 
 #perform tracking from each cluster in subj space to get tract maps
@@ -81,10 +83,8 @@ rule track_from_clusters:
         probtrack_opts = config['probtrack_tractmap']['opts'],
         nsamples = config['probtrack_tractmap']['nsamples'],
         extract_seed_cmd = lambda wildcards, input, output: f'fslmaths {input.cluster_k} -thr {wildcards.kindex} -uthr {wildcards.kindex} {output.probtrack_dir}/in_seed.nii.gz',
-        container = '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
         out_track_dirs = lambda wildcards,output: expand('{}/label-{{k_index:02d}}'.format(output.probtrack_dir),k_index=range(1,int(wildcards.k)+1)),
         container = config['singularity']['fsl_cuda']
-
     output:
         probtrack_dir = directory(bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack',kindex='{kindex}')),
         tractmap = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack/fdt_paths.nii.gz',kindex='{kindex}'),
