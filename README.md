@@ -1,6 +1,8 @@
 # Snakemake workflow: diffparc-smk
 General-purpose Snakemake workflow for diffusion-based subcortical parcellation
 
+This workflow is customized for the basal forebrain, run on HCP1200 7T diffusion data.
+
 Uses HCP-MMP cortical parcellation (180 regions, left/right sym labels) as targets and performs probabilistic tracking from the subcortical seed in each subject's space, then brings connectivity data from seed voxels into template space and performs spectral clustering on the concatenated feature vectors to parcellate into k regions.
 
 Inputs:
@@ -9,11 +11,9 @@ Inputs:
 - For each target subject:
   - Freesurfer processed data
   - Pre-processed DWI, registered to T1w space (e.g. HCP-style, or from [prepdwi](https://github.com/khanlab/prepdwi))
-  - BEDPOST processed data (TODO: run bedpost-gpu in this workflow)
+  - BEDPOST processed data 
   - ANTS transformations from *template* T1w space to/from each subject T1w, e.g. from: [ants_build_template_smk](https://github.com/akhanf/ants_build_template_smk); must include affine, warp and invwarp
 
-Subworkflows:
- - The target segmentations are generated using the [hcp_mmp_to_native](https://github.com/khanlab-snakemake/hcp_mmp_to_native) workflow, referenced as a submodule in this repository
 
 Singularity containers required:
  - Freesurfer (for `mri_convert`, `mris_convert`, `mri_info`)
@@ -24,9 +24,16 @@ Singularity containers required:
 NOTE: Currently the tractography step in the workflow requires a GPU 
  
 
+# RECOMMENDED EXECUTION: 
+snakemake -np --profile cc-slurm
+
+ - Further job grouping (beyond 1 job per subject) on graham with `--group-components` is not recommended as it can lead to over-subscribed GPUs when run on graham (TODO: fix this)
+
+
 ## Authors
 
 * Ali Khan @akhanf 
+* Sudesna Chakraborty
 
 ## Usage
 
@@ -43,33 +50,21 @@ Configure the workflow according to your needs via editing the files in the `con
 
 ### Step 3: Install Snakemake
 
-Install Snakemake using [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html):
-
-    conda create -c bioconda -c conda-forge -n snakemake snakemake
-
 For installation details, see the [instructions in the Snakemake documentation](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html).
 
 ### Step 4: Execute workflow
 
-Activate the conda environment:
-
-    conda activate snakemake
-
 Test your configuration by performing a dry-run via
 
-    snakemake --use-conda --use-singularity -n
+    snakemake --use-singularity -n
 
 Execute the workflow locally via
 
-    snakemake --use-conda --use-singularity --cores $N
+    snakemake --use-singularity --cores $N
 
 using `$N` cores or run it in a cluster environment via
 
-    snakemake --use-conda --use-singularity --cluster qsub --jobs 100
-
-or
-
-    snakemake --use-conda --use-singularity --drmaa --jobs 100
+    snakemake --use-singularity --cluster qsub --jobs 100
 
 
 If you are using Compute Canada, you can use the [cc-slurm](https://github.com/khanlab/cc-slurm) profile, which submits jobs and takes care of requesting the correct resources per job (including GPUs). Once it is set-up with cookiecutter, run:
@@ -82,7 +77,7 @@ Or, with [neuroglia-helpers](https://github.com/khanlab/neuroglia-helpers) can g
     
 Then, run:
 
-    snakemake --use-conda --use-singularity --cores 8 --resources gpu=1 mem=32000
+    snakemake --use-singularity --cores 8 --resources gpu=1 mem=32000
 
 
 See the [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/executable.html) for further details.
