@@ -82,6 +82,9 @@ rule track_from_clusters:
         nsamples = config['probtrack_tractmap']['nsamples'],
         extract_seed_cmd = lambda wildcards, input, output: f'fslmaths {input.cluster_k} -thr {wildcards.kindex} -uthr {wildcards.kindex} {output.probtrack_dir}/in_seed.nii.gz',
         container = '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
+        out_track_dirs = lambda wildcards,output: expand('{}/label-{{k_index:02d}}'.format(output.probtrack_dir),k_index=range(1,int(wildcards.k)+1)),
+        container = config['singularity']['fsl_cuda']
+
     output:
         probtrack_dir = directory(bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack',kindex='{kindex}')),
         tractmap = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',suffix='probtrack/fdt_paths.nii.gz',kindex='{kindex}'),
@@ -92,13 +95,13 @@ rule track_from_clusters:
         gpus = 1 #1 gpu
     log: 'logs/track_from_clusters/sub-{subject}_template-{template}_{seed}_k-{k}_kindex-{kindex}.log'
     group: 'participant2'
-#    container: '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
     shell:
         'mkdir -p {output.probtrack_dir} && '
         '{params.extract_seed_cmd} && singularity exec -e --nv {params.container} '
         'probtrackx2_gpu --samples={params.bedpost_merged}  --mask={input.mask} --seed={output.probtrack_dir}/in_seed.nii.gz '
         '--seedref={output.probtrack_dir}/in_seed.nii.gz --nsamples={params.nsamples} '
         '--dir={output.probtrack_dir} {params.probtrack_opts} -V 2  &> {log}'
+
 
 # check bids-deriv dwi - tractography ?
 # space-T1w, res-?

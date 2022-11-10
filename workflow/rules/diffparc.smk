@@ -154,7 +154,7 @@ rule run_probtrack:
         probtrack_opts = config['probtrack']['opts'],
         out_target_seg = lambda wildcards, output: expand(bids(root=output.probtrack_dir,include_subject_dir=False,prefix='seeds_to',label='{target}',suffix='mask.nii.gz'), target=targets),
         nsamples = config['probtrack']['nsamples'],
-        container = '/project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif'
+        container = config['singularity']['fsl_cuda']
     output:
         probtrack_dir = directory(bids(root='results/diffparc',subject='{subject}',label='{seed}',from_='{template}',suffix='probtrack'))
     threads: 32
