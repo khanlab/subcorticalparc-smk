@@ -13,12 +13,11 @@ wildcard_constraints:
 
 # BIDS PARTIALS
 hcp_mmp_bids = partial(
-    bids(
-        root="results/hcp_mmp",
-        subject="{subject}",
-        hemi="{hemi}",
-        space="native",
-    )
+    bids,
+    root="results/hcp_mmp",
+    subject="{subject}",
+    hemi="{hemi}",
+    space="native",
 )
 
 
