@@ -1,2 +1,5 @@
+# Unneeded snakemake files
 .snakemake
-.*
+
+# Misc 
+.deprecated/
