@@ -1,33 +1,50 @@
+from functools import partial
+
+# BIDS partials
+hcp_mmp_bids = partial(
+    bids,
+    root="results/hcp_mmp",
+    subject="{subject}",
+    label="hcpmmp",
+    space="native",
+    suffix="dseg.nii.gz",
+)
+
+diffparc_subject = partial(
+    bids,
+    root="results/diffparc",
+    subject="{subject}",
+    space="individual",
+)
+
+diffparc_template = partial(
+    bids,
+    root="results/diffparc",
+    template="{template}",
+    label="{seed}",
+)
+
+diffparc_probtrack = partial(
+    bids,
+    root="results/diffparc",
+    subject="{subject}",
+    label="{seed}",
+)
+
 #########################################################
 # added some hints for eventual bids-derivatives naming #
 # (e.g. space, label, type(dseg, mask, probseg)..)      #
 #########################################################
 
+
 # space-T1w (native), dseg
 rule combine_lr_hcp:
     input:
-        lh=bids(
-            root="results/hcp_mmp",
-            subject="{subject}",
-            hemi="L",
-            label="hcpmmp",
-            space="native",
-            suffix="dseg.nii.gz",
-        ),
-        rh=bids(
-            root="results/hcp_mmp",
-            subject="{subject}",
-            hemi="R",
-            label="hcpmmp",
-            space="native",
-            suffix="dseg.nii.gz",
-        ),
+        lh=hcp_mmp_bids(hemi="L"),
+        rh=hcp_mmp_bids(hemi="R"),
     output:
-        lh_rh=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
-            label=config["targets_atlas_name"],
+        lh_rh=diffparc_subject(
+            label=config["target"]["cortical"]["atlas"],
             suffix="dseg.nii.gz",
         ),
     container:
@@ -40,17 +57,13 @@ rule combine_lr_hcp:
         "fslmaths {input.lh} -max {input.rh} {output.lh_rh} &> {log}"
 
 
+# PERFORM THRESHOLDING OF SEED
 # mask
 rule get_binary_template_seed:
     input:
         seed=lambda wildcards: config["template_binary_mask"][wildcards.seed],
     output:
-        mask=bids(
-            root="results/diffparc",
-            template="{template}",
-            label="{seed}",
-            suffix="mask.nii.gz",
-        ),
+        mask=diffparc_template(suffix="mask.nii.gz"),
     group:
         "group0"
     shell:
@@ -59,17 +72,9 @@ rule get_binary_template_seed:
 
 rule dilate_seed:
     input:
-        mask=bids(
-            root="results/diffparc",
-            template="{template}",
-            label="{seed}",
-            suffix="mask.nii.gz",
-        ),
+        mask=rules.get_binary_template_seed.output.mask,
     output:
-        seed=bids(
-            root="results/diffparc",
-            template="{template}",
-            label="{seed}",
+        seed=diffparc_template(
             desc="dilatedsmoothed",
             suffix="mask.nii.gz",
         ),
@@ -81,36 +86,21 @@ rule dilate_seed:
         "c3d {input} -dilate 1 3x3x3vox -o {output}"
 
 
+# Use applywarp
 # transform probabilistic seed to subject
 # space-T1w,  probseg
 rule transform_to_subject:
     input:
-        seed=bids(
-            root="results/diffparc",
-            template="{template}",
-            label="{seed}",
-            desc="dilatedsmoothed",
-            suffix="mask.nii.gz",
-        ),
-        invwarp=config["ants_invwarp_nii"],
-        ref=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
-            label=config["targets_atlas_name"],
+        seed=rules.dilate_seed.output.seed,
+        invwarp=config["transforms"]["invwarp"],
+        ref=diffparc_subject(
+            label=config["target"]["cortical"]["atlas"],
             suffix="dseg.nii.gz",
         ),
     output:
-        seed=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
-            label="{seed}",
-            from_="{template}",
-            suffix="mask.nii.gz",
+        seed=diffparc_subject(
+            label="{seed}", from_="{template}", suffix="mask.nii.gz"
         ),
-    envmodules:
-        "ants",
     container:
         config["singularity"]["neuroglia"]
     log:
@@ -126,7 +116,7 @@ rule transform_to_subject:
 # space-T1w res-? mask
 rule resample_brainmask:
     input:
-        dwi=join(config["fsl_bedpost_dir"], config["bedpost_mean_s0_samples"]),
+        dwi=join(config["bedpost"]["dir"], config["bedpost"]["samples"]),
     params:
         seed_resolution=config["probtrack"]["seed_resolution"],
     output:
@@ -158,26 +148,14 @@ rule resample_brainmask:
 # space-T1w res-? dseg
 rule resample_targets:
     input:
-        mask_res=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            label="brain",
-            res="dwi",
-            suffix="mask.nii.gz",
-        ),
-        targets=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
-            label=config["targets_atlas_name"],
+        mask_res=rules.resample_brainmask.output.mask_res,
+        targets=diffparc_subject(
+            label=config["target"]["cortical"]["atlas"],
             suffix="dseg.nii.gz",
         ),
     output:
-        targets_res=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
-            label=config["targets_atlas_name"],
+        targets_res=diffparc_subject(
+            label=config["target"]["cortical"]["atlas"],
             res="dwi",
             suffix="dseg.nii.gz",
         ),
@@ -195,26 +173,10 @@ rule resample_targets:
 # space-T1w res=? probseg
 rule resample_seed:
     input:
-        mask_res=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            label="brain",
-            res="dwi",
-            suffix="mask.nii.gz",
-        ),
-        seed=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
-            label="{seed}",
-            from_="{template}",
-            suffix="mask.nii.gz",
-        ),
+        mask_res=rules.resample_brainmask.output.mask_res,
+        seed=rules.transform_to_subject.output.seed,
     output:
-        seed_res=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
+        seed_res=diffparc_subject(
             label="{seed}",
             from_="{template}",
             res="dwi",
@@ -234,14 +196,7 @@ rule resample_seed:
 # space-T1w, mask
 rule split_targets:
     input:
-        targets=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
-            label=config["targets_atlas_name"],
-            res="dwi",
-            suffix="dseg.nii.gz",
-        ),
+        targets=rules.resample_targets.output.targets_res,
     params:
         target_nums=lambda wildcards: [str(i + 1) for i in range(len(targets))],
         target_seg=lambda wildcards, output: expand(
@@ -253,7 +208,9 @@ rule split_targets:
     output:
         target_seg_dir=directory(
             bids(
-                root="results/diffparc", subject="{subject}", suffix="targets"
+                root="results/diffparc",
+                subject="{subject}",
+                suffix="targets",
             )
         ),
     container:
@@ -270,9 +227,7 @@ rule split_targets:
 # txt
 rule gen_targets_txt:
     input:
-        target_seg_dir=bids(
-            root="results/diffparc", subject="{subject}", suffix="targets"
-        ),
+        target_seg_dir=rules.split_targets.output.target_seg_dir,
     params:
         target_seg=lambda wildcards, input: expand(
             "{target_seg_dir}/sub-{subject}_label-{target}_mask.nii.gz",
@@ -296,28 +251,14 @@ rule gen_targets_txt:
 # probtrack dir out
 rule run_probtrack:
     input:
-        seed_res=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
-            label="{seed}",
-            from_="{template}",
-            res="dwi",
-            suffix="mask.nii.gz",
-        ),
+        seed_res=rules.resample_seed.output.seed_res,
         target_txt=rules.gen_targets_txt.output,
-        mask=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            label="brain",
-            suffix="mask.nii.gz",
-        ),
-        target_seg_dir=bids(
-            root="results/diffparc", subject="{subject}", suffix="targets"
-        ),
+        mask=rules.resample_brainmask.output.mask,
+        target_seg_dir=rules.split_targets.output.target_seg_dir,
     params:
         bedpost_merged=join(
-            config["fsl_bedpost_dir"], config["bedpost_merged_prefix"]
+            config["bedpost"]["dir"],
+            config["bedpost"]["merged_prefix"],
         ),
         probtrack_opts=config["probtrack"]["opts"],
         out_target_seg=lambda wildcards, output: expand(
@@ -334,10 +275,7 @@ rule run_probtrack:
         container=config["singularity"]["fsl_cuda"],
     output:
         probtrack_dir=directory(
-            bids(
-                root="results/diffparc",
-                subject="{subject}",
-                label="{seed}",
+            diffparc_probtrack(
                 from_="{template}",
                 suffix="probtrack",
             )
@@ -362,20 +300,9 @@ rule run_probtrack:
 # space-{template}
 rule transform_conn_to_template:
     input:
-        probtrack_dir=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            label="{seed}",
-            from_="{template}",
-            suffix="probtrack",
-        ),
-        warp=config["ants_warp_nii"],
-        ref=bids(
-            root="results/diffparc",
-            template="{template}",
-            label="{seed}",
-            suffix="mask.nii.gz",
-        ),
+        probtrack_dir=rules.run_probtrack.output.probtrack_dir,
+        ref=rules.get_binary_template_seed.output.mask,
+        warp=config["transforms"]["invwarp"],
     params:
         in_connmap_3d=lambda wildcards, input: expand(
             bids(
@@ -401,10 +328,7 @@ rule transform_conn_to_template:
         ),
     output:
         probtrack_dir=directory(
-            bids(
-                root="results/diffparc",
-                subject="{subject}",
-                label="{seed}",
+            diffparc_probtrack(
                 space="{template}",
                 suffix="probtrack",
             )
@@ -428,19 +352,8 @@ rule transform_conn_to_template:
 # space-{template}
 rule save_connmap_template_npz:
     input:
-        mask=bids(
-            root="results/diffparc",
-            template="{template}",
-            label="{seed}",
-            suffix="mask.nii.gz",
-        ),
-        probtrack_dir=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            label="{seed}",
-            space="{template}",
-            suffix="probtrack",
-        ),
+        mask=rules.get_binary_template_seed.output.mask,
+        probtrack_dir=rules.transform_conn_to_template.output.probtrack_dir,
     params:
         connmap_3d=lambda wildcards, input: expand(
             bids(
@@ -454,9 +367,7 @@ rule save_connmap_template_npz:
             target=targets,
         ),
     output:
-        connmap_npz=bids(
-            root="results/diffparc",
-            subject="{subject}",
+        connmap_npz=diffparc_subject(
             label="{seed}",
             space="{template}",
             suffix="connMap.npz",
@@ -475,22 +386,13 @@ rule save_connmap_template_npz:
 rule gather_connmap_group:
     input:
         connmap_npz=expand(
-            bids(
-                root="results/diffparc",
-                subject="{subject}",
-                label="{seed}",
-                space="{template}",
-                suffix="connMap.npz",
-            ),
+            rules.save_connmap_template_npz.output.connmap_npz,
             subject=subjects,
             allow_missing=True,
         ),
     output:
-        connmap_group_npz=bids(
-            root="results/diffparc",
-            template="{template}",
+        connmap_group_npz=diffparc_template(
             desc="concat",
-            label="{seed}",
             from_="group",
             suffix="connMap.npz",
         ),
@@ -507,22 +409,12 @@ rule gather_connmap_group:
 # space-{template},  dseg
 rule spectral_clustering:
     input:
-        connmap_group_npz=bids(
-            root="results/diffparc",
-            template="{template}",
-            desc="concat",
-            label="{seed}",
-            from_="group",
-            suffix="connMap.npz",
-        ),
+        connmap_group_npz=rules.gather_connmap_group.output.connmap_group_npz,
     params:
         max_k=config["max_k"],
     output:
         cluster_k=expand(
-            bids(
-                root="results/diffparc",
-                template="{template}",
-                label="{seed}",
+            diffparc_template(
                 from_="group",
                 method="spectralcosine",
                 k="{k}",
@@ -546,10 +438,7 @@ rule spectral_clustering:
 # sorting the cluster label by AP, sorted = desc
 rule sort_cluster_label:
     input:
-        seg=bids(
-            root="results/diffparc",
-            template="{template}",
-            label="{seed}",
+        seg=diffparc_template(
             from_="group",
             method="spectralcosine",
             k="{k}",
@@ -557,10 +446,7 @@ rule sort_cluster_label:
         ),
         shell_script="workflow/scripts/sort_labels_by_ap.sh",
     output:
-        seg=bids(
-            root="results/diffparc",
-            template="{template}",
-            label="{seed}",
+        seg=diffparc_template(
             from_="group",
             method="spectralcosine",
             k="{k}",
