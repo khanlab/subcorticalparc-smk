@@ -30,7 +30,9 @@ rule extract_from_tar:
         file_in_tar="{subject}/{modality}/{filename}",
     output:
         filename=join(
-            config["in_freesurfer"], "{modality,surf|mri}", "{filename}"
+            config["freesurfer"]["subject"],
+            "{modality,surf|mri}",
+            "{filename}",
         ),
     threads: 8
     shadow:
