@@ -1,64 +1,54 @@
+#participants_tsv: 'config/participants/hcp7T_participants.tsv'
+participants_tsv: 'config/participants/hcptestparticipants.tsv' # Test participants
 
-#participants_tsv: 'config/hcp7Tparticipants.tsv' #7T subjects used in basalfb study
-
-#test list with 5 subjects
-participants_tsv: 'config/hcptestparticipants.tsv'
-
-#singularity containers:
+# Singularity containers
 singularity:
   neuroglia: /project/6050199/akhanf/singularity/bids-apps/khanlab_neuroglia-core_latest.sif
   freesurfer: /project/6050199/akhanf/singularity/bids-apps/khanlab_freesurfer_v6.0.1-subfields.img
   connectome_workbench: /project/6050199/akhanf/singularity/bids-apps/khanlab_connectome-workbench_latest.sif
   fsl_cuda: /project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif
 
-#path to your freesurfer license file:
+# Freesurfer license:
 fs_license: /project/6050199/akhanf/opt/freesurfer/.license
 
+##### INPUT PATHS / VARIABLES #####
+# Subject freesurfer directory (with surf/ and mri/ subdirectories)
+# Uses subject wildcard
+freesurfer:
+  subject: 'freesurfer/sub-{subject}'
+  root: 'freesurfer'
+  tar: /project/6050199/ext-data/hcp1200/HCP_1200_T1w_Diffusion_FS/{subject}/T1w/{subject}.freesurfer.tar
 
+# Template
+template: MNI152NLin6Asym
 
-#set-up paths to inputs here:
+# Segmentation threshold
+prob_seg_threshold: 0.5
 
+# Target segmentations
+target:
+  tsv: resources/label-hcpmmp180_dseg.tsv
+  atlas: hcpmmp180 # must be [a-zA-Z0-9]+
 
-#path to subject freesurfer dir (containing surf/ and mri/ subfolders) 
-# use the {subject} wildcard here.. 
-in_freesurfer: 'freesurfer/sub-{subject}'
-in_freesurfer_root: 'freesurfer'
-in_freesurfer_tar: /project/6050199/ext-data/hcp1200/HCP_1200_T1w_Diffusion_FS/{subject}/T1w/{subject}.freesurfer.tar
+# Bedpost params
+bedpost:
+  dir: /project/6050199/ext-data/hcp1200/HCP_1200_T1w_Diffusion_FS
+  samples: '{subject}/T1w/Diffusion_7T.bedpostX/meanS0samples.nii.gz'
+  merged_prefix: '{subject}/T1w/Diffusion_7T.bedpostX/merged'
 
-
-
+# SEED MASK????
 template_binary_mask:
   fullBF: 'resources/seed_1p6mm.nii.gz'
 
-prob_seg_threshold: 0.5
-
-template: MNI152NLin6Asym
-ants_invwarp_nii: /project/6050199/ext-data/hcp1200/deriv/greedy_template_hcp_UR100_1mm_T1T2GMWM_compositewarps/results/composite/sub-{subject}_to-{template}_via-cohort_CompositeInverseWarp.nii.gz
-ants_warp_nii: /project/6050199/ext-data/hcp1200/deriv/greedy_template_hcp_UR100_1mm_T1T2GMWM_compositewarps/results/composite/sub-{subject}_to-{template}_via-cohort_CompositeWarp.nii.gz
-ants_ref_nii: /project/6050199/ext-data/hcp1200/deriv/greedy_template_hcp_UR100_1mm_T1T2GMWM_compositewarps/resources/templateflow/tpl-{template}/tpl-{template}_res-04_desc-brain_T1w.nii.gz
-
-#list of ROIs in target segmentations 
-targets_dseg_tsv: resources/label-hcpmmp180_dseg.tsv
-targets_atlas_name: hcpmmp180 #must be [a-zA-Z0-9]+
-
-#bedpost
-fsl_bedpost_dir: /project/6050199/ext-data/hcp1200/HCP_1200_T1w_Diffusion_FS
-bedpost_mean_s0_samples: '{subject}/T1w/Diffusion_7T.bedpostX/mean_S0samples.nii.gz'
-bedpost_merged_prefix: '{subject}/T1w/Diffusion_7T.bedpostX/merged'
-
-#maximum number of clusters in spectral clustering
-# will perform with k=range(2,max_k+1)
+# Max no. of clusters (will perform with k=range(2,max_k+1))
 max_k: 8
 
-
-#tractography parameters
+# Tractography parameters
 probtrack:
     seed_resolution: 1.0
     res_name: dwi # bids deriv filename will have res-{res_name}
-
     nsamples: 10000
     opts: '--loopcheck --onewaycondition --cthr=0.2 --nsteps=2000 --steplength=0.5  --fibthresh=0.01 --distthresh=0.0 --sampvox=0.0 --forcedir --opd --os2t --randfib=2' 
-
 
 probtrack_tractmap:
     seed_resolution: 0.5
