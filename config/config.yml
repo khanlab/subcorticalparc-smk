@@ -21,14 +21,25 @@ freesurfer:
 
 # Template
 template: MNI152NLin6Asym
+  ref_nii: # TO ADD 
 
 # Segmentation threshold
 prob_seg_threshold: 0.5
 
+# Transforms
+transforms:
+  subject: 'hcp/sub-{subject}'
+  zip: /project/6050199/ext-data/hcp1200/zipfiles/{subject}_3T_Structural_preproc.zip
+  root: 'hcp'
+  warp: 'standard2acpc_dc.nii.gz'
+  invwarp: 'acpc_dc2standard.nii.gz'
+  ref_nii: 'resources/standard_atlases/tpl-MNI152NLin6Asym-res-04_desc-brain_T1w.nii.gz'
+
 # Target segmentations
 target:
-  tsv: resources/label-hcpmmp180_dseg.tsv
-  atlas: hcpmmp180 # must be [a-zA-Z0-9]+
+  cortical:
+    tsv: resources/label-hcpmmp180_dseg.tsv
+    atlas: hcpmmp180 # must be [a-zA-Z0-9]+
 
 # Bedpost params
 bedpost:
