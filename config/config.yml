@@ -21,7 +21,6 @@ freesurfer:
 
 # Template
 template: MNI152NLin6Asym
-  ref_nii: # TO ADD 
 
 # Segmentation threshold
 prob_seg_threshold: 0.5
