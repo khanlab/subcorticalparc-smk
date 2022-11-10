@@ -57,17 +57,22 @@ rule combine_lr_hcp:
         "fslmaths {input.lh} -max {input.rh} {output.lh_rh} &> {log}"
 
 
-# PERFORM THRESHOLDING OF SEED
 # mask
 rule get_binary_template_seed:
     input:
-        seed=lambda wildcards: config["template_binary_mask"][wildcards.seed],
+        seed=join(config["seed"]["dir"], config["seed"]["nii"]),
+    params:
+        seg_thresh=config["prob_seg_threshold"],
     output:
-        mask=diffparc_template(suffix="mask.nii.gz"),
+        mask=diffparc_template(
+            desc=f"thresh{str(config['prob_seg_threshold'])}",
+            hemi="{hemi}",
+            suffix="mask.nii.gz",
+        ),
     group:
         "group0"
     shell:
-        "cp {input} {output}"
+        "fslmaths {input} -thr {params.seg_thresh} {output}"
 
 
 rule dilate_seed:
@@ -92,7 +97,7 @@ rule dilate_seed:
 rule transform_to_subject:
     input:
         seed=rules.dilate_seed.output.seed,
-        invwarp=config["transforms"]["invwarp"],
+        warp=config["transforms"]["warp"],
         ref=diffparc_subject(
             label=config["target"]["cortical"]["atlas"],
             suffix="dseg.nii.gz",
@@ -109,7 +114,7 @@ rule transform_to_subject:
         "participant1"
     threads: 8
     shell:
-        "antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {input.seed} -o {output} -r {input.ref}  -t {input.invwarp} &> {log}"
+        "applywarp --rel -i {input.seed} -r {input.ref} --interp nn -w {input.warp} -o {output} &> {log}"
 
 
 # create brainmask from bedpost data, and resample to chosen resolution
@@ -302,7 +307,7 @@ rule transform_conn_to_template:
     input:
         probtrack_dir=rules.run_probtrack.output.probtrack_dir,
         ref=rules.get_binary_template_seed.output.mask,
-        warp=config["transforms"]["invwarp"],
+        invwarp=config["transforms"]["invwarp"],
     params:
         in_connmap_3d=lambda wildcards, input: expand(
             bids(
@@ -333,8 +338,6 @@ rule transform_conn_to_template:
                 suffix="probtrack",
             )
         ),
-    envmodules:
-        "ants",
     container:
         config["singularity"]["neuroglia"]
     threads: 32
@@ -345,7 +348,7 @@ rule transform_conn_to_template:
     group:
         "participant1"
     shell:
-        "mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp}  &> {log} :::  {params.in_connmap_3d} :::+ {params.out_connmap_3d}"
+        "mkdir -p {output} && applywarp -i {params.in_connmap_3d} -r {input.ref} -w {input.invwarp} -o {params.out_connmap_3d} &> {log}"
 
 
 # check bids-deriv -- connectivity?
@@ -370,14 +373,13 @@ rule save_connmap_template_npz:
         connmap_npz=diffparc_subject(
             label="{seed}",
             space="{template}",
+            hemi="{hemi}",
             suffix="connMap.npz",
         ),
     log:
-        "logs/save_connmap_to_template_npz/sub-{subject}_{seed}_{template}.log",
+        "logs/save_connmap_to_template_npz/sub-{subject}_{hemi}_{seed}_{template}.log",
     group:
         "participant1"
-    conda:
-        "../envs/sklearn.yml"
     script:
         "../scripts/save_connmap_template_npz.py"
 
@@ -393,13 +395,12 @@ rule gather_connmap_group:
     output:
         connmap_group_npz=diffparc_template(
             desc="concat",
+            hemi="{hemi}",
             from_="group",
             suffix="connMap.npz",
         ),
     log:
-        "logs/gather_connmap_group/{seed}_{template}.log",
-    conda:
-        "../envs/sklearn.yml"
+        "logs/gather_connmap_group/{hemi}_{seed}_{template}.log",
     group:
         "group1"
     script:
@@ -415,6 +416,7 @@ rule spectral_clustering:
     output:
         cluster_k=expand(
             diffparc_template(
+                hemi="{hemi}",
                 from_="group",
                 method="spectralcosine",
                 k="{k}",
@@ -426,9 +428,7 @@ rule spectral_clustering:
     resources:
         mem_mb=64000,
     log:
-        "logs/spectral_clustering/{seed}_{template}.log",
-    conda:
-        "../envs/sklearn.yml"
+        "logs/spectral_clustering/{hemi}_{seed}_{template}.log",
     group:
         "group1"
     script:
@@ -439,6 +439,7 @@ rule spectral_clustering:
 rule sort_cluster_label:
     input:
         seg=diffparc_template(
+            hemi="{hemi}",
             from_="group",
             method="spectralcosine",
             k="{k}",
@@ -447,6 +448,7 @@ rule sort_cluster_label:
         shell_script="workflow/scripts/sort_labels_by_ap.sh",
     output:
         seg=diffparc_template(
+            hemi="{hemi}",
             from_="group",
             method="spectralcosine",
             k="{k}",
@@ -458,7 +460,7 @@ rule sort_cluster_label:
     group:
         "group1"
     log:
-        "logs/sort_cluster_label/{seed}_{template}_{k}.log",
+        "logs/sort_cluster_label/{hemi}_{seed}_{template}_{k}.log",
     shadow:
         "minimal"  #run in shadow dir to avoid conflicts between centroids txt files
     shell:
