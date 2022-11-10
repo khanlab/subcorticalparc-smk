@@ -60,7 +60,7 @@ rule transform_clus_to_subj:
             k=range(2, config["max_k"] + 1),
             allow_missing=True,
         ),
-        invwarp=rules.extract_from_zip.outputs.invwarp_name,
+        invwarp=rules.extract_invwarp_from_zip.output.invwarp_name,
         ref=bids(
             root="results/diffparc",
             subject="{subject}",
@@ -142,13 +142,7 @@ rule resample_clus_seed:
             desc="sorted",
             suffix="dseg.nii.gz",
         ),
-        mask_res=bids(
-            root="results/tractmap",
-            subject="{subject}",
-            label="brain",
-            res="super",
-            suffix="mask.nii.gz",
-        ),
+        mask_res=rules.resample_brainmask_tractmaps.output.mask_res,
     output:
         seed_res=bids(
             root="results/tractmap",
@@ -212,12 +206,7 @@ rule track_from_clusters:
             desc="sorted",
             suffix="dseg.nii.gz",
         ),
-        mask=bids(
-            root="results/tractmap",
-            subject="{subject}",
-            label="brain",
-            suffix="mask.nii.gz",
-        ),
+        mask=rules.resample_brainmask_tractmaps.output.mask,
     params:
         bedpost_merged=join(
             config["bedpost"]["dir"], config["bedpost"]["merged_prefix"]
@@ -407,15 +396,7 @@ rule combine_tractmaps_warped:
 rule avg_tractmaps_template:
     input:
         tractmaps_4d=expand(
-            bids(
-                root="results/tractmap",
-                subject="{subject}",
-                label="{seed}",
-                method="spectralcosine",
-                k="{k}",
-                space="{template}",
-                suffix="tractmap4d.nii.gz",
-            ),
+            rules.combine_tractmaps_warped.output.tractmaps_4d,
             subject=subjects,
             allow_missing=True,
         ),
@@ -444,15 +425,7 @@ rule avg_tractmaps_template:
 # space-template, desc-avgtractmap, dseg
 rule vote_tractmap_template:
     input:
-        tractmaps=bids(
-            root="results/tractmap",
-            template="{template}",
-            label="{seed}",
-            method="spectralcosine",
-            k="{k}",
-            desc="average",
-            suffix="tractmap4d.nii.gz",
-        ),
+        tractmaps=rules.avg_tractmaps_template.output.average,
     params:
         bg_th=100,  # set only if avg streamline count > bg_th 
     output:
