@@ -1,4 +1,14 @@
-def bids (root=None, prefix=None, suffix=None, subject=None, session=None,include_subject_dir=True,include_session_dir=True,template=None,**entities):
+def bids(
+    root=None,
+    prefix=None,
+    suffix=None,
+    subject=None,
+    session=None,
+    include_subject_dir=True,
+    include_session_dir=True,
+    template=None,
+    **entities,
+):
     """Helper function for generating bids paths for snakemake workflows
 
     File path is of the form:
@@ -40,13 +50,13 @@ def bids (root=None, prefix=None, suffix=None, subject=None, session=None,includ
 
         However, you can still use bids() in a lambda function, this is especially useful if your wildcards
         are named the same as bids entities (e.g. {subject}, {session}, {task} etc..):
- 
+
         rule proc_img:
             input: lambda wildcards: bids(**wildcards,suffix='T1w.nii.gz')
             output: bids(subject='{subject}',space='snsx32',desc='preproc',suffix='T1w.nii.gz')
 
         Or another example where you may have many bids-like wildcards used in your workflow:
-        
+
         rule denoise_func:
             input: lambda wildcards: bids(**wildcards, suffix='bold.nii.gz')
             output: bids(subject='{subject}',session='{session}',task='{task}',acq='{acq}',desc='denoise',suffix='bold.nii.gz')
@@ -70,83 +80,83 @@ def bids (root=None, prefix=None, suffix=None, subject=None, session=None,includ
 
     from collections import OrderedDict
     from os.path import join
-    
 
-    #replace underscores in keys (needed to that users can use reserved keywords by appending a _)
-    entities = { k.replace('_', ''): v for k, v in entities.items() }
-       
-   
-    if isinstance(subject,str) and isinstance(template,str):
-        raise('template and subject cannot be used together')
-    
-    #strict ordering of bids entities is specified here:
-    order = OrderedDict([('task', None),
-                         ('acq', None),
-                         ('ce', None),
-                         ('rec', None),
-                         ('dir', None),
-                         ('run', None),
-                         ('mod', None),
-                         ('echo', None),
-                         ('space', None),
-                         ('res', None),
-                         ('den', None),
-                         ('label', None),
-                         ('desc', None)])
+    # replace underscores in keys (needed to that users can use reserved keywords by appending a _)
+    entities = {k.replace("_", ""): v for k, v in entities.items()}
 
-    #now add in entities (this preserves ordering above)
+    if isinstance(subject, str) and isinstance(template, str):
+        raise ("template and subject cannot be used together")
+
+    # strict ordering of bids entities is specified here:
+    order = OrderedDict(
+        [
+            ("task", None),
+            ("acq", None),
+            ("ce", None),
+            ("rec", None),
+            ("dir", None),
+            ("run", None),
+            ("mod", None),
+            ("echo", None),
+            ("space", None),
+            ("res", None),
+            ("den", None),
+            ("label", None),
+            ("desc", None),
+        ]
+    )
+
+    # now add in entities (this preserves ordering above)
     for key, val in entities.items():
         order[key] = val
 
-    #initialize lists for filename and folder
+    # initialize lists for filename and folder
     # will append to these, then '_'.join() os.path.join() respectively
     filename = []
     folder = []
 
-    #root directory
-    if isinstance(root,str):
+    # root directory
+    if isinstance(root, str):
         folder.append(root)
 
-    #if prefix is defined, put it before other anything else
+    # if prefix is defined, put it before other anything else
     if isinstance(prefix, str):
         filename.append(prefix)
 
-    #if subject defined then append to file and folder
-    if isinstance(subject,str):
+    # if subject defined then append to file and folder
+    if isinstance(subject, str):
         if include_subject_dir is True:
-            folder.append(f'sub-{subject}')
-        filename.append(f'sub-{subject}')
+            folder.append(f"sub-{subject}")
+        filename.append(f"sub-{subject}")
 
-    #if template defined then append to file and folder
-    if isinstance(template,str):
+    # if template defined then append to file and folder
+    if isinstance(template, str):
         if include_subject_dir is True:
-            folder.append(f'tpl-{template}')
-        filename.append(f'tpl-{template}')
+            folder.append(f"tpl-{template}")
+        filename.append(f"tpl-{template}")
 
-    #if session defined then append to file and folder
-    if isinstance(session,str):
+    # if session defined then append to file and folder
+    if isinstance(session, str):
         if include_session_dir is True:
-            folder.append(f'ses-{session}')
-        filename.append(f'ses-{session}')
-    
-    #add the entities
+            folder.append(f"ses-{session}")
+        filename.append(f"ses-{session}")
+
+    # add the entities
     for key, val in order.items():
         if val is not None:
-            filename.append(f'{key}-{val}')
+            filename.append(f"{key}-{val}")
 
-    #if suffix is defined, append it
+    # if suffix is defined, append it
     if isinstance(suffix, str):
         filename.append(suffix)
 
+    if len(filename) == 0:
+        return ""
 
-    if len(filename) == 0:    
-        return ''
+    # now, join up the lists:
+    filename = "_".join(filename)
 
-    #now, join up the lists:
-    filename = '_'.join(filename)
+    if len(folder) > 0:
+        filename = join(*folder, filename)
 
-    if len(folder)>0:
-        filename = join(*folder,filename)
-    
     return filename
-
