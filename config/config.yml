@@ -1,5 +1,5 @@
 #participants_tsv: 'config/participants/hcp7T_participants.tsv'
-participants_tsv: 'config/participants/hcptestparticipants.tsv' # Test participants
+participants_tsv: 'config/participants/hcptest_participants.tsv' # Test participants
 
 # Singularity containers
 singularity:
@@ -30,8 +30,8 @@ transforms:
   subject: 'hcp/sub-{subject}'
   zip: /project/6050199/ext-data/hcp1200/zipfiles/{subject}_3T_Structural_preproc.zip
   root: 'hcp'
-  warp: 'standard2acpc_dc.nii.gz'
-  invwarp: 'acpc_dc2standard.nii.gz'
+  warp: 'standard2acpc_dc.nii.gz' # To subject
+  invwarp: 'acpc_dc2standard.nii.gz' # To template
   ref_nii: 'resources/standard_atlases/tpl-MNI152NLin6Asym-res-04_desc-brain_T1w.nii.gz'
 
 # Target segmentations
