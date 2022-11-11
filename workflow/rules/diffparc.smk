@@ -111,6 +111,8 @@ rule get_binary_template_seed:
             hemi="{hemi}",
             suffix="mask.nii.gz",
         ),
+    container:
+        config["singularity"]["neuroglia"]
     group:
         "group0"
     shell:
