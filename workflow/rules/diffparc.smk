@@ -36,6 +36,7 @@ diffparc_probtrack = partial(
 # (e.g. space, label, type(dseg, mask, probseg)..)      #
 #########################################################
 
+
 rule extract_warp_from_zip:
     input:
         hcp_zip=config["transforms"]["zip"],
@@ -78,6 +79,7 @@ rule extract_invwarp_from_zip:
     shell:
         "mkdir -p {params.out_folder} && unzip {input.hcp_zip} {params.invwarp_in_zip} && "
         "mv {params.invwarp_in_zip} {output.invwarp_name}"
+
 
 # space-T1w (native), dseg
 rule combine_lr_hcp:
@@ -136,7 +138,6 @@ rule dilate_seed:
         "c3d {input} -dilate 1 3x3x3vox -o {output}"
 
 
-# Use applywarp
 # transform probabilistic seed to subject
 # space-T1w,  probseg
 rule transform_to_subject:
@@ -149,7 +150,10 @@ rule transform_to_subject:
         ),
     output:
         seed=diffparc_subject(
-            hemi="{hemi}", label="{seed}", from_="{template}", suffix="mask.nii.gz"
+            hemi="{hemi}",
+            label="{seed}",
+            from_="{template}",
+            suffix="mask.nii.gz",
         ),
     container:
         config["singularity"]["neuroglia"]
@@ -355,7 +359,7 @@ rule transform_conn_to_template:
     input:
         probtrack_dir=rules.run_probtrack.output.probtrack_dir,
         ref=rules.get_binary_template_seed.output.mask,
-        invwarp=rules.extract_invwarp_from_zip.output.invwarp_name
+        invwarp=rules.extract_invwarp_from_zip.output.invwarp_name,
     params:
         in_connmap_3d=lambda wildcards, input: expand(
             bids(
