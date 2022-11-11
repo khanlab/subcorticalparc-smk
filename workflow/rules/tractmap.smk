@@ -1,6 +1,3 @@
-# Include to use warp extraction rules
-include: 'diffparc.smk'
-
 # warp group-based clusters back to each subject
 # space-T1w, desc-groupclus?, dseg
 rule transform_clus_to_subj:
