@@ -17,6 +17,9 @@ targets = df_targets.name.to_list()
 # Get seeds, as structure keys
 seeds = config["seed"]["structures"].keys()
 
+# Hemis
+hemis = ["L", "R"]
+
 
 # bids-naming for subject and template (only alphanumeric characters)
 wildcard_constraints:
@@ -38,6 +41,7 @@ rule all_diffparc:
             bids(
                 root="results/tractmap",
                 template="{template}",
+                hemi="{hemi}",
                 label="{seed}",
                 method="spectralcosine",
                 k="{k}",
@@ -46,6 +50,7 @@ rule all_diffparc:
             ),
             template=config["template"],
             seed=seeds,
+            hemi=hemis,
             k=range(2, config["max_k"] + 1),
         ),
 

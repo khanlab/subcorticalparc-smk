@@ -29,15 +29,15 @@ transforms:
   root: 'hcp'
   warp: 'standard2acpc_dc.nii.gz' # To subject
   invwarp: 'acpc_dc2standard.nii.gz' # To template
-  ref_nii: 'resources/standard_atlases/tpl-MNI152NLin6Asym-res-04_desc-brain_T1w.nii.gz'
+  ref_nii: 'resources/standard_atlases/tpl-MNI152NLin6Asym_res-04_desc-brain_T1w.nii.gz'
 
 # Segmentation threshold
 prob_seg_threshold: 0.5
 
 # Seed segmentations
 seed:
-  dir: /scratch/tkai/zona/misc/zona_parcellations/MIN152NLin6Asym
-  nii: sub-SNSXNLin2020Asym_space-MNI152NLin6Asym_hemi-{hemi}_desc-{seed}_prob.nii.gz
+  dir: /scratch/tkai/zona/misc/zona_parcellations/MNI152NLin6Asym
+  nii: sub-SNSX32NLin2020Asym_space-MNI152NLin6Asym_hemi-{hemi}_desc-{seed}_prob.nii.gz
   structures:
     ZI: ZI
     # cZI: cZI
@@ -52,7 +52,7 @@ target:
 # Bedpost params
 bedpost:
   dir: /project/6050199/ext-data/hcp1200/HCP_1200_T1w_Diffusion_FS
-  samples: '{subject}/T1w/Diffusion_7T.bedpostX/meanS0samples.nii.gz'
+  samples: '{subject}/T1w/Diffusion_7T.bedpostX/mean_S0samples.nii.gz'
   merged_prefix: '{subject}/T1w/Diffusion_7T.bedpostX/merged'
 
 # Max no. of clusters (will perform with k=range(2,max_k+1))

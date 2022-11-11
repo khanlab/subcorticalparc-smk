@@ -3,7 +3,6 @@ from functools import partial
 # needed since std meshes sometimes use L/R instead of lh/rh
 # hemi_to_H = dict({'lh': 'L', 'rh': 'R'})
 H_to_hemi = dict({"L": "lh", "R": "rh"})
-hemis = ["L", "R"]
 
 
 wildcard_constraints:

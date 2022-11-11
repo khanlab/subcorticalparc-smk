@@ -36,6 +36,48 @@ diffparc_probtrack = partial(
 # (e.g. space, label, type(dseg, mask, probseg)..)      #
 #########################################################
 
+rule extract_warp_from_zip:
+    input:
+        hcp_zip=config["transforms"]["zip"],
+    params:
+        out_folder=config["transforms"]["root"],
+        warp_in_zip=join(
+            "{subject}/MNINonLinear/xfms", config["transforms"]["warp"]
+        ),
+    output:
+        warp_name=join(
+            config["transforms"]["subject"], config["transforms"]["warp"]
+        ),
+    threads: 8
+    shadow:
+        "minimal"
+    group:
+        "participant1"
+    shell:
+        "mkdir -p {params.out_folder} && unzip {input.hcp_zip} {params.warp_in_zip} && "
+        "mv {params.warp_in_zip} {output.warp_name}"
+
+
+rule extract_invwarp_from_zip:
+    input:
+        hcp_zip=config["transforms"]["zip"],
+    params:
+        out_folder=config["transforms"]["root"],
+        invwarp_in_zip=join(
+            "{subject}/MNINonLinear/xfms", config["transforms"]["invwarp"]
+        ),
+    output:
+        invwarp_name=join(
+            config["transforms"]["subject"], config["transforms"]["invwarp"]
+        ),
+    threads: 8
+    shadow:
+        "minimal"
+    group:
+        "participant1"
+    shell:
+        "mkdir -p {params.out_folder} && unzip {input.hcp_zip} {params.invwarp_in_zip} && "
+        "mv {params.invwarp_in_zip} {output.invwarp_name}"
 
 # space-T1w (native), dseg
 rule combine_lr_hcp:
@@ -80,6 +122,7 @@ rule dilate_seed:
         mask=rules.get_binary_template_seed.output.mask,
     output:
         seed=diffparc_template(
+            hemi="{hemi}",
             desc="dilatedsmoothed",
             suffix="mask.nii.gz",
         ),
@@ -97,19 +140,19 @@ rule dilate_seed:
 rule transform_to_subject:
     input:
         seed=rules.dilate_seed.output.seed,
-        warp=config["transforms"]["warp"],
+        warp=rules.extract_warp_from_zip.output.warp_name,
         ref=diffparc_subject(
             label=config["target"]["cortical"]["atlas"],
             suffix="dseg.nii.gz",
         ),
     output:
         seed=diffparc_subject(
-            label="{seed}", from_="{template}", suffix="mask.nii.gz"
+            hemi="{hemi}", label="{seed}", from_="{template}", suffix="mask.nii.gz"
         ),
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/transform_to_subject/{template}_sub-{subject}_{seed}.log",
+        "logs/transform_to_subject/{template}_sub-{subject}_hemi-{hemi}_{seed}.log",
     group:
         "participant1"
     threads: 8
@@ -182,6 +225,7 @@ rule resample_seed:
         seed=rules.transform_to_subject.output.seed,
     output:
         seed_res=diffparc_subject(
+            hemi="{hemi}",
             label="{seed}",
             from_="{template}",
             res="dwi",
@@ -190,7 +234,7 @@ rule resample_seed:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/resample_seed/{template}_sub-{subject}_{seed}.log",
+        "logs/resample_seed/{template}_sub-{subject}_hemi-{hemi}_{seed}.log",
     group:
         "participant1"
     shell:
@@ -271,6 +315,7 @@ rule run_probtrack:
                 root=output.probtrack_dir,
                 include_subject_dir=False,
                 prefix="seeds_to",
+                hemi=wildcards.hemi,
                 label="{target}",
                 suffix="mask.nii.gz",
             ),
@@ -281,6 +326,7 @@ rule run_probtrack:
     output:
         probtrack_dir=directory(
             diffparc_probtrack(
+                hemi="{hemi}",
                 from_="{template}",
                 suffix="probtrack",
             )
@@ -291,7 +337,7 @@ rule run_probtrack:
         time=30,  #30 mins
         gpus=1,  #1 gpu
     log:
-        "logs/run_probtrack/sub-{subject}_{seed}_{template}.log",
+        "logs/run_probtrack/sub-{subject}_hemi-{hemi}_{seed}_{template}.log",
     group:
         "participant1"
     shell:
@@ -307,13 +353,14 @@ rule transform_conn_to_template:
     input:
         probtrack_dir=rules.run_probtrack.output.probtrack_dir,
         ref=rules.get_binary_template_seed.output.mask,
-        invwarp=config["transforms"]["invwarp"],
+        invwarp=rules.extract_invwarp_from_zip.output.invwarp_name
     params:
         in_connmap_3d=lambda wildcards, input: expand(
             bids(
                 root=input.probtrack_dir,
                 include_subject_dir=False,
                 subject=wildcards.subject,
+                hemi=wildcards.hemi,
                 prefix="seeds_to",
                 label="{target}",
                 suffix="mask.nii.gz",
@@ -325,6 +372,7 @@ rule transform_conn_to_template:
                 root=output.probtrack_dir,
                 include_subject_dir=False,
                 subject=wildcards.subject,
+                hemi=wildcards.hemi,
                 prefix="seeds_to",
                 label="{target}",
                 suffix="mask.nii.gz",
@@ -334,6 +382,7 @@ rule transform_conn_to_template:
     output:
         probtrack_dir=directory(
             diffparc_probtrack(
+                hemi="{hemi}",
                 space="{template}",
                 suffix="probtrack",
             )
@@ -344,7 +393,7 @@ rule transform_conn_to_template:
     resources:
         mem_mb=128000,
     log:
-        "logs/transform_conn_to_template/sub-{subject}_{seed}_{template}.log",
+        "logs/transform_conn_to_template/sub-{subject}_hemi-{hemi}_{seed}_{template}.log",
     group:
         "participant1"
     shell:
@@ -363,6 +412,7 @@ rule save_connmap_template_npz:
                 root=input.probtrack_dir,
                 include_subject_dir=False,
                 subject=wildcards.subject,
+                hemi=wildcards.hemi,
                 prefix="seeds_to",
                 label="{target}",
                 suffix="mask.nii.gz",
@@ -377,7 +427,7 @@ rule save_connmap_template_npz:
             suffix="connMap.npz",
         ),
     log:
-        "logs/save_connmap_to_template_npz/sub-{subject}_{hemi}_{seed}_{template}.log",
+        "logs/save_connmap_to_template_npz/sub-{subject}_hemi-{hemi}_{seed}_{template}.log",
     group:
         "participant1"
     script:
@@ -400,7 +450,7 @@ rule gather_connmap_group:
             suffix="connMap.npz",
         ),
     log:
-        "logs/gather_connmap_group/{hemi}_{seed}_{template}.log",
+        "logs/gather_connmap_group/hemi-{hemi}_{seed}_{template}.log",
     group:
         "group1"
     script:
@@ -428,7 +478,7 @@ rule spectral_clustering:
     resources:
         mem_mb=64000,
     log:
-        "logs/spectral_clustering/{hemi}_{seed}_{template}.log",
+        "logs/spectral_clustering/hemi-{hemi}_{seed}_{template}.log",
     group:
         "group1"
     script:
@@ -460,7 +510,7 @@ rule sort_cluster_label:
     group:
         "group1"
     log:
-        "logs/sort_cluster_label/{hemi}_{seed}_{template}_{k}.log",
+        "logs/sort_cluster_label/hemi-{hemi}_{seed}_{template}_{k}.log",
     shadow:
         "minimal"  #run in shadow dir to avoid conflicts between centroids txt files
     shell:

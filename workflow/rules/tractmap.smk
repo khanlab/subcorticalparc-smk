@@ -1,46 +1,5 @@
-rule extract_warp_from_zip:
-    input:
-        hcp_zip=config["transforms"]["zip"],
-    params:
-        out_folder=config["transforms"]["root"],
-        warp_in_zip=join(
-            "{subject}/MNINonLinear/xfms", config["transforms"]["warp"]
-        ),
-    output:
-        warp_name=join(
-            config["transforms"]["subject"], config["transforms"]["warp"]
-        ),
-    threads: 8
-    shadow:
-        "minimal"
-    group:
-        "participant1"
-    shell:
-        "mkdir -p {params.out_folder} && unzip {input.hcp_zip} {params.warp_in_zip} && "
-        "mv {params.file_in_zip} {output.warpname}"
-
-
-rule extract_invwarp_from_zip:
-    input:
-        hcp_zip=config["transforms"]["zip"],
-    params:
-        out_folder=config["transforms"]["root"],
-        invwarp_in_zip=join(
-            "{subject}/MNINonLinear/xfms", config["transforms"]["invwarp"]
-        ),
-    output:
-        invwarp_name=join(
-            config["transforms"]["subject"], config["transforms"]["invwarp"]
-        ),
-    threads: 8
-    shadow:
-        "minimal"
-    group:
-        "participant1"
-    shell:
-        "mkdir -p {params.out_folder} && unzip {input.hcp_zip} {params.warp_in_zip} && "
-        "mv {params.file_in_zip} {output.warpname}"
-
+# Include to use warp extraction rules
+include: 'diffparc.smk'
 
 # warp group-based clusters back to each subject
 # space-T1w, desc-groupclus?, dseg
@@ -50,6 +9,7 @@ rule transform_clus_to_subj:
             bids(
                 root="results/diffparc",
                 template="{template}",
+                hemi="{hemi}",
                 label="{seed}",
                 from_="group",
                 method="spectralcosine",
@@ -74,6 +34,7 @@ rule transform_clus_to_subj:
                 root="results/tractmap",
                 subject="{subject}",
                 space="individual",
+                hemi="{hemi}",
                 label="{seed}",
                 method="spectralcosine",
                 k="{k}",
@@ -87,7 +48,7 @@ rule transform_clus_to_subj:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/transform_clus_to_subject/sub-{subject}_template-{template}_{seed}.log",
+        "logs/transform_clus_to_subject/sub-{subject}_template-{template}_hemi-{hemi}_{seed}.log",
     group:
         "participant2"
     threads: 8
@@ -135,6 +96,7 @@ rule resample_clus_seed:
             root="results/tractmap",
             subject="{subject}",
             space="individual",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -148,6 +110,7 @@ rule resample_clus_seed:
             root="results/tractmap",
             subject="{subject}",
             space="individual",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -159,7 +122,7 @@ rule resample_clus_seed:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/resample_clus_seed/sub-{subject}_template-{template}_{seed}_k-{k}.log",
+        "logs/resample_clus_seed/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
     group:
         "participant2"
     shell:
@@ -198,6 +161,7 @@ rule track_from_clusters:
             root="results/tractmap",
             subject="{subject}",
             space="individual",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -225,6 +189,7 @@ rule track_from_clusters:
                 root="results/tractmap",
                 subject="{subject}",
                 space="individual",
+                hemi="{hemi}",
                 label="{seed}",
                 method="spectralcosine",
                 k="{k}",
@@ -238,6 +203,7 @@ rule track_from_clusters:
             root="results/tractmap",
             subject="{subject}",
             space="individual",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -252,7 +218,7 @@ rule track_from_clusters:
         time=360,
         gpus=1,  #1 gpu
     log:
-        "logs/track_from_clusters/sub-{subject}_template-{template}_{seed}_k-{k}_kindex-{kindex}.log",
+        "logs/track_from_clusters/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}_kindex-{kindex}.log",
     group:
         "participant2"
     shell:
@@ -272,6 +238,7 @@ rule combine_tractmaps:
                 root="results/tractmap",
                 subject=f"{wildcards.subject}",
                 space="individual",
+                hemi="{hemi}",
                 label=f"{wildcards.seed}",
                 method="spectralcosine",
                 k=f"{wildcards.k}",
@@ -287,6 +254,7 @@ rule combine_tractmaps:
             root="results/tractmap",
             subject="{subject}",
             space="individual",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -295,7 +263,7 @@ rule combine_tractmaps:
             suffix="tractmap4d.nii.gz",
         ),
     log:
-        "logs/combine_tractmaps/sub-{subject}_template-{template}_{seed}_k-{k}.log",
+        "logs/combine_tractmaps/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
     container:
         config["singularity"]["neuroglia"]
     group:
@@ -307,13 +275,14 @@ rule combine_tractmaps:
 
 
 # transform tract maps back to template space
-# space-{template}, tractogrpahy?
+# space-{template}, tractography?
 rule transform_tractmaps_to_template:
     input:
         tractmap=bids(
             root="results/tractmap",
             subject="{subject}",
             space="individual",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -322,12 +291,13 @@ rule transform_tractmaps_to_template:
             suffix="probtrack/fdt_paths.nii.gz",
             kindex="{kindex}",
         ),
-        invwarp=config["transforms"]["invwarp"],
+        invwarp=rules.extract_invwarp_from_zip.output.invwarp_name,
         ref=config["transforms"]["ref_nii"],
     output:
         tractmap=bids(
             root="results/tractmap",
             subject="{subject}",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -340,7 +310,7 @@ rule transform_tractmaps_to_template:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/transform_tractmaps_to_template/sub-{subject}_{seed}_{template}_k-{k}_kindex-{kindex}.log",
+        "logs/transform_tractmaps_to_template/sub-{subject}_hemi-{hemi}_{seed}_{template}_k-{k}_kindex-{kindex}.log",
     group:
         "participant2"
     threads: 8
@@ -358,6 +328,7 @@ rule combine_tractmaps_warped:
             bids(
                 root="results/tractmap",
                 subject=f"{wildcards.subject}",
+                hemi=f"{wildcards.hemi}",
                 label=f"{wildcards.seed}",
                 method="spectralcosine",
                 k=f"{wildcards.k}",
@@ -373,6 +344,7 @@ rule combine_tractmaps_warped:
         tractmaps_4d=bids(
             root="results/tractmap",
             subject="{subject}",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -380,7 +352,7 @@ rule combine_tractmaps_warped:
             suffix="tractmap4d.nii.gz",
         ),
     log:
-        "logs/combine_tractmaps_warped/sub-{subject}_template-{template}_{seed}_k-{k}.log",
+        "logs/combine_tractmaps_warped/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
     container:
         config["singularity"]["neuroglia"]
     resources:
@@ -404,6 +376,7 @@ rule avg_tractmaps_template:
         average=bids(
             root="results/tractmap",
             template="{template}",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -432,6 +405,7 @@ rule vote_tractmap_template:
         vote_seg=bids(
             root="results/tractmap",
             template="{template}",
+            hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
@@ -441,7 +415,7 @@ rule vote_tractmap_template:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/vote_tractmap_template/{template}_{seed}_{k}.log",
+        "logs/vote_tractmap_template/{template}_hemi-{hemi}_{seed}_k-{k}.log",
     group:
         "group2"
     threads: 8
