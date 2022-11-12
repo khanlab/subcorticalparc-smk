@@ -69,7 +69,7 @@ rule convert_to_gifti:
     container:
         config["singularity"]["freesurfer"]
     log:
-        "logs/convert_to_gifti/sub-{subject}_{hemi}_{surfname}.log",
+        "logs/convert_to_gifti/sub-{subject}_hemi-{hemi}_{surfname}.log",
     group:
         "participant1"
     shell:
@@ -100,7 +100,9 @@ rule convert_to_nifti:
 rule get_tkr2scanner:
     input:
         t1=bids(
-            root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
+            root="results/hcp_mmp",
+            subject="{subject}",
+            suffix="T1.nii.gz",
         ),
     output:
         tkr2scanner=bids(
@@ -122,15 +124,8 @@ rule get_tkr2scanner:
 
 rule apply_surf_tkr2scanner:
     input:
-        surf=hcp_mmp_bids(
-            space="fsaverage",
-            suffix="{surfname}.surf.gii",
-        ),
-        tkr2scanner=bids(
-            root="results/hcp_mmp",
-            subject="{subject}",
-            suffix="tkr2scanner.xfm",
-        ),
+        surf=rules.convert_to_gifti.output,
+        tkr2scanner=rules.get_tkr2scanner.output.tkr2scanner,
     output:
         surf=hcp_mmp_bids(
             suffix="{surfname}.surf.gii",
@@ -139,7 +134,7 @@ rule apply_surf_tkr2scanner:
     container:
         config["singularity"]["connectome_workbench"]
     log:
-        "logs/apply_surf_tkr2scanner/sub-{subject}_{hemi}_{surfname}.log",
+        "logs/apply_surf_tkr2scanner/sub-{subject}_hemi-{hemi}_{surfname}.log",
     group:
         "participant1"
     shell:
@@ -165,7 +160,7 @@ rule gen_midthickness:
         config["singularity"]["connectome_workbench"]
     threads: 8
     log:
-        "logs/gen_midthickness/sub-{subject}_{hemi}_{space}.log",
+        "logs/gen_midthickness/sub-{subject}_hemi-{hemi}_space-{space}.log",
     group:
         "participant1"
     shell:
@@ -209,11 +204,7 @@ rule resample_labels_to_subj_sphere:
             space="fsaverage",
             suffix="sphere.reg.surf.gii",
         ),
-        current_surf=hcp_mmp_bids(
-            space="fsLR",
-            den="32k",
-            suffix="midthickness.surf.gii",
-        ),
+        current_surf=rules.resample_subj_to_fsaverage_sphere.output.surf,
         new_surf=hcp_mmp_bids(
             space="fsaverage",
             suffix="midthickness.surf.gii",
@@ -245,15 +236,14 @@ rule resample_labels_to_subj_sphere:
 
 rule map_labels_to_volume_ribbon:
     input:
-        label=hcp_mmp_bids(
-            label="hcpmmp",
-            suffix="dseg.label.gii",
-        ),
+        label=rules.resample_labels_to_subj_sphere.output.label,
         surf=hcp_mmp_bids(
             suffix="midthickness.surf.gii",
         ),
         vol_ref=bids(
-            root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
+            root="results/hcp_mmp",
+            subject="{subject}",
+            suffix="T1.nii.gz",
         ),
         white_surf=hcp_mmp_bids(
             suffix="white.surf.gii",

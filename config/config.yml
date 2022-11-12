@@ -24,12 +24,9 @@ template: MNI152NLin6Asym
 
 # Transforms
 transforms:
-  subject: 'hcp/sub-{subject}'
-  zip: /project/6050199/ext-data/hcp1200/zipfiles/{subject}_3T_Structural_preproc.zip
-  root: 'hcp'
-  warp: 'standard2acpc_dc.nii.gz' # To subject
-  invwarp: 'acpc_dc2standard.nii.gz' # To template
-  ref_nii: 'resources/standard_atlases/tpl-MNI152NLin6Asym_res-04_desc-brain_T1w.nii.gz'
+  ants_invwarp: /project/6050199/ext-data/hcp1200/deriv/greedy_template_hcp_UR100_1mm_T1T2GMWM_compositewarps/results/composite/sub-{subject}_to-{template}_via-cohort_CompositeInverseWarp.nii.gz
+  ants_warp: /project/6050199/ext-data/hcp1200/deriv/greedy_template_hcp_UR100_1mm_T1T2GMWM_compositewarps/results/composite/sub-{subject}_to-{template}_via-cohort_CompositeWarp.nii.gz
+  ants_ref: /project/6050199/ext-data/hcp1200/deriv/greedy_template_hcp_UR100_1mm_T1T2GMWM_compositewarps/resources/templateflow/tpl-{template}/tpl-{template}_res-04_desc-brain_T1w.nii.gz
 
 # Segmentation threshold
 prob_seg_threshold: 0.5

@@ -2,6 +2,7 @@
 .snakemake
 
 # Dev
+.parallel/
 logs/
 results/
 freesurfer/

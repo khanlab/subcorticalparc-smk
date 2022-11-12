@@ -17,7 +17,7 @@ rule transform_clus_to_subj:
             k=range(2, config["max_k"] + 1),
             allow_missing=True,
         ),
-        warp=rules.extract_warp_from_zip.output.warp_name,
+        invwarp=config["transforms"]["ants_invwarp"],
         ref=bids(
             root="results/diffparc",
             subject="{subject}",
@@ -50,7 +50,7 @@ rule transform_clus_to_subj:
         "participant2"
     threads: 8
     shell:
-        "applywarp --rel -i {input.cluster_k} -r {input.ref} -w {input.warp} --interp nn -o {output.cluster_k} &> {log}"
+        "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {{1}} -o {{2}}  -r {input.ref}  -t {input.invwarp} &> {log} :::  {input.cluster_k} :::+ {output.cluster_k}"
 
 
 # create brainmask from bedpost data, and resample to chosen resolution
@@ -288,8 +288,8 @@ rule transform_tractmaps_to_template:
             suffix="probtrack/fdt_paths.nii.gz",
             kindex="{kindex}",
         ),
-        invwarp=rules.extract_invwarp_from_zip.output.invwarp_name,
-        ref=config["transforms"]["ref_nii"],
+        warp=config["transforms"]["ants_warp"],
+        ref=config["transforms"]["ants_ref"],
     output:
         tractmap=bids(
             root="results/tractmap",
@@ -315,7 +315,7 @@ rule transform_tractmaps_to_template:
         mem_mb=32000,
         time=10,
     shell:
-        "applywarp --rel -i {input.tractmap} -r {input.ref} -w {input.invwarp} -o {output.tractmap} &> {log}"
+        "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1  antsApplyTransforms -d 3 --interpolation Linear -i {input.tractmap} -o {output.tractmap}  -r {input.ref} -t {input.warp}  &> {log}"
 
 
 # space-{template}, tractography 4d?

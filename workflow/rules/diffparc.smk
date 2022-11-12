@@ -37,50 +37,6 @@ diffparc_probtrack = partial(
 #########################################################
 
 
-rule extract_warp_from_zip:
-    input:
-        hcp_zip=config["transforms"]["zip"],
-    params:
-        out_folder=config["transforms"]["root"],
-        warp_in_zip=join(
-            "{subject}/MNINonLinear/xfms", config["transforms"]["warp"]
-        ),
-    output:
-        warp_name=join(
-            config["transforms"]["subject"], config["transforms"]["warp"]
-        ),
-    threads: 8
-    shadow:
-        "minimal"
-    group:
-        "participant1"
-    shell:
-        "mkdir -p {params.out_folder} && unzip {input.hcp_zip} {params.warp_in_zip} && "
-        "mv {params.warp_in_zip} {output.warp_name}"
-
-
-rule extract_invwarp_from_zip:
-    input:
-        hcp_zip=config["transforms"]["zip"],
-    params:
-        out_folder=config["transforms"]["root"],
-        invwarp_in_zip=join(
-            "{subject}/MNINonLinear/xfms", config["transforms"]["invwarp"]
-        ),
-    output:
-        invwarp_name=join(
-            config["transforms"]["subject"], config["transforms"]["invwarp"]
-        ),
-    threads: 8
-    shadow:
-        "minimal"
-    group:
-        "participant1"
-    shell:
-        "mkdir -p {params.out_folder} && unzip {input.hcp_zip} {params.invwarp_in_zip} && "
-        "mv {params.invwarp_in_zip} {output.invwarp_name}"
-
-
 # space-T1w (native), dseg
 rule combine_lr_hcp:
     input:
@@ -143,11 +99,8 @@ rule dilate_seed:
 rule transform_to_subject:
     input:
         seed=rules.dilate_seed.output.seed,
-        warp=rules.extract_warp_from_zip.output.warp_name,
-        ref=diffparc_subject(
-            label=config["target"]["cortical"]["atlas"],
-            suffix="dseg.nii.gz",
-        ),
+        ref=rules.combine_lr_hcp.output.lh_rh,
+        invwarp=config["transforms"]["ants_invwarp"],
     output:
         seed=diffparc_subject(
             hemi="{hemi}",
@@ -163,7 +116,7 @@ rule transform_to_subject:
         "participant1"
     threads: 8
     shell:
-        "applywarp --rel -i {input.seed} -r {input.ref} --interp nn -w {input.warp} -o {output} &> {log}"
+        "antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {input.seed} -o {output} -r {input.ref}  -t {input.invwarp} &> {log}"
 
 
 # create brainmask from bedpost data, and resample to chosen resolution
@@ -203,10 +156,7 @@ rule resample_brainmask:
 rule resample_targets:
     input:
         mask_res=rules.resample_brainmask.output.mask_res,
-        targets=diffparc_subject(
-            label=config["target"]["cortical"]["atlas"],
-            suffix="dseg.nii.gz",
-        ),
+        targets=rules.combine_lr_hcp.output.lh_rh,
     output:
         targets_res=diffparc_subject(
             label=config["target"]["cortical"]["atlas"],
@@ -359,14 +309,13 @@ rule transform_conn_to_template:
     input:
         probtrack_dir=rules.run_probtrack.output.probtrack_dir,
         ref=rules.get_binary_template_seed.output.mask,
-        invwarp=rules.extract_invwarp_from_zip.output.invwarp_name,
+        warp=config["transforms"]["ants_warp"],
     params:
         in_connmap_3d=lambda wildcards, input: expand(
             bids(
                 root=input.probtrack_dir,
                 include_subject_dir=False,
                 subject=wildcards.subject,
-                hemi=wildcards.hemi,
                 prefix="seeds_to",
                 label="{target}",
                 suffix="mask.nii.gz",
@@ -378,7 +327,6 @@ rule transform_conn_to_template:
                 root=output.probtrack_dir,
                 include_subject_dir=False,
                 subject=wildcards.subject,
-                hemi=wildcards.hemi,
                 prefix="seeds_to",
                 label="{target}",
                 suffix="mask.nii.gz",
@@ -403,7 +351,7 @@ rule transform_conn_to_template:
     group:
         "participant1"
     shell:
-        "mkdir -p {output} && applywarp -i {params.in_connmap_3d} -r {input.ref} -w {input.invwarp} -o {params.out_connmap_3d} &> {log}"
+        "mkdir -p {output.probtrack_dir} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp}  &> {log} :::  {params.in_connmap_3d} :::+ {params.out_connmap_3d}"
 
 
 # check bids-deriv -- connectivity?
@@ -418,7 +366,6 @@ rule save_connmap_template_npz:
                 root=input.probtrack_dir,
                 include_subject_dir=False,
                 subject=wildcards.subject,
-                hemi=wildcards.hemi,
                 prefix="seeds_to",
                 label="{target}",
                 suffix="mask.nii.gz",
