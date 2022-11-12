@@ -98,6 +98,7 @@ def bids(
             ("run", None),
             ("mod", None),
             ("echo", None),
+            ("hemi", None),
             ("space", None),
             ("res", None),
             ("den", None),
