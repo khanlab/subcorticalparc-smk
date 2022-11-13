@@ -43,8 +43,10 @@ rule transform_clus_to_subj:
     group:
         "participant2"
     threads: 8
+    resources:
+        mem_mb = 32000
     shell:
-        "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {{1}} -o {{2}}  -r {input.ref}  -t {input.invwarp} &> {log} :::  {input.cluster_k} :::+ {output.cluster_k}"
+        "ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation MultiLabel -i {{1}} -o {{2}}  -r {input.ref}  -t {input.invwarp} &> {log} :::  {input.cluster_k} :::+ {output.cluster_k}"
 
 
 # create brainmask from bedpost data, and resample to chosen resolution
