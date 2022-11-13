@@ -18,13 +18,7 @@ rule transform_clus_to_subj:
             allow_missing=True,
         ),
         invwarp=config["transforms"]["ants_invwarp"],
-        ref=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            space="individual",
-            label=config["target"]["cortical"]["atlas"],
-            suffix="dseg.nii.gz",
-        ),
+        ref=rules.combine_lr_hcp.output.lh_rh,
     output:
         cluster_k=expand(
             bids(

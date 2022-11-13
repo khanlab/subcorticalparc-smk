@@ -1,23 +1,20 @@
 from functools import partial
 
-# needed since std meshes sometimes use L/R instead of lh/rh
-# hemi_to_H = dict({'lh': 'L', 'rh': 'R'})
+
 H_to_hemi = dict({"L": "lh", "R": "rh"})
 
 
-wildcard_constraints:
-    surfname="white|pial|sphere.reg",
-    volname="T1",
-
-
-# BIDS PARTIALS
 hcp_mmp_bids = partial(
     bids,
     root="results/hcp_mmp",
     subject="{subject}",
     hemi="{hemi}",
-    space="native",
 )
+
+
+wildcard_constraints:
+    surfname="white|pial|sphere.reg",
+    volname="T1",
 
 
 rule extract_from_tar:
@@ -69,7 +66,7 @@ rule convert_to_gifti:
     container:
         config["singularity"]["freesurfer"]
     log:
-        "logs/convert_to_gifti/sub-{subject}_hemi-{hemi}_{surfname}.log",
+        "logs/convert_to_gifti/sub-{subject}_{hemi}_{surfname}.log",
     group:
         "participant1"
     shell:
@@ -100,9 +97,7 @@ rule convert_to_nifti:
 rule get_tkr2scanner:
     input:
         t1=bids(
-            root="results/hcp_mmp",
-            subject="{subject}",
-            suffix="T1.nii.gz",
+            root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
         ),
     output:
         tkr2scanner=bids(
@@ -128,13 +123,14 @@ rule apply_surf_tkr2scanner:
         tkr2scanner=rules.get_tkr2scanner.output.tkr2scanner,
     output:
         surf=hcp_mmp_bids(
+            space="native",
             suffix="{surfname}.surf.gii",
         ),
     threads: 8
     container:
         config["singularity"]["connectome_workbench"]
     log:
-        "logs/apply_surf_tkr2scanner/sub-{subject}_hemi-{hemi}_{surfname}.log",
+        "logs/apply_surf_tkr2scanner/sub-{subject}_{hemi}_{surfname}.log",
     group:
         "participant1"
     shell:
@@ -144,23 +140,23 @@ rule apply_surf_tkr2scanner:
 rule gen_midthickness:
     input:
         white=hcp_mmp_bids(
-            suffix="white.surf.gii",
             space="{space}",
+            suffix="white.surf.gii",
         ),
         pial=hcp_mmp_bids(
-            suffix="pial.surf.gii",
             space="{space}",
+            suffix="pial.surf.gii",
         ),
     output:
         midthickness=hcp_mmp_bids(
-            suffix="midthickness.surf.gii",
             space="{space}",
+            suffix="midthickness.surf.gii",
         ),
     container:
         config["singularity"]["connectome_workbench"]
     threads: 8
     log:
-        "logs/gen_midthickness/sub-{subject}_hemi-{hemi}_space-{space}.log",
+        "logs/gen_midthickness/sub-{subject}_{hemi}_{space}.log",
     group:
         "participant1"
     shell:
@@ -200,6 +196,11 @@ rule resample_subj_to_fsaverage_sphere:
 
 rule resample_labels_to_subj_sphere:
     input:
+        label=lambda wildcards: "resources/standard_mesh_atlases/{hemi}.hcp-mmp.32k_fs_LR.label.gii".format(
+            hemi=H_to_hemi[wildcards.hemi]
+        ),
+        current_sphere=lambda wildcards: "resources/standard_mesh_atlases/resample_fsaverage/"
+        "fs_LR-deformed_to-fsaverage.{hemi}.sphere.32k_fs_LR.surf.gii",
         new_sphere=hcp_mmp_bids(
             space="fsaverage",
             suffix="sphere.reg.surf.gii",
@@ -209,10 +210,6 @@ rule resample_labels_to_subj_sphere:
             space="fsaverage",
             suffix="midthickness.surf.gii",
         ),
-        label=lambda wildcards: "resources/standard_mesh_atlases/{hemi}.hcp-mmp.32k_fs_LR.label.gii".format(
-            hemi=H_to_hemi[wildcards.hemi]
-        ),
-        current_sphere=lambda wildcards: "resources/standard_mesh_atlases/resample_fsaverage/fs_LR-deformed_to-fsaverage.{hemi}.sphere.32k_fs_LR.surf.gii",
     params:
         method="ADAP_BARY_AREA",
     output:
@@ -238,22 +235,24 @@ rule map_labels_to_volume_ribbon:
     input:
         label=rules.resample_labels_to_subj_sphere.output.label,
         surf=hcp_mmp_bids(
+            space="native",
             suffix="midthickness.surf.gii",
         ),
         vol_ref=bids(
-            root="results/hcp_mmp",
-            subject="{subject}",
-            suffix="T1.nii.gz",
+            root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
         ),
         white_surf=hcp_mmp_bids(
+            space="native",
             suffix="white.surf.gii",
         ),
         pial_surf=hcp_mmp_bids(
+            space="native",
             suffix="pial.surf.gii",
         ),
     output:
         label_vol=hcp_mmp_bids(
             label="hcpmmp",
+            space="native",
             suffix="dseg.nii.gz",
         ),
     container:
@@ -272,24 +271,27 @@ rule map_labels_to_volume_ribbon:
 # currently optional
 rule map_labels_to_volume_wmboundary:
     input:
-        label=hcp_mmp_bids(
-            label="hcpmmp",
-            suffix="dseg.label.gii",
-        ),
+        label=rules.resample_labels_to_subj_sphere.output.label,
         surf=hcp_mmp_bids(
-            suffix="midthickness.surf.gii",
+            suffix="white.surf.gii",
+            space="native",
         ),
         vol_ref=bids(
             root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
         ),
-        white_surf=hcp_mmp_bids(suffix="white.surf.gii"),
+        white_surf=hcp_mmp_bids(
+            suffix="white.surf.gii",
+            space="native",
+        ),
         pial_surf=hcp_mmp_bids(
             suffix="pial.surf.gii",
+            space="native",
         ),
     params:
         nearest_vertex="{wmbdy}",
     output:
         label_vol=hcp_mmp_bids(
+            space="native",
             label="hcpmmp",
             desc="wmbound{wmbdy}",
             suffix="dseg.nii.gz",
@@ -302,5 +304,5 @@ rule map_labels_to_volume_wmboundary:
     group:
         "participant1"
     shell:
-        "wb_command -label-to-volume-mapping {input.label} {input.white_surf} {input.vol_ref} {output.label_vol}"
+        "wb_command -label-to-volume-mapping {input.label} {input.surf} {input.vol_ref} {output.label_vol}"
         " -nearest-vertex {params.nearest_vertex} &> {log}"
