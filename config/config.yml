@@ -7,6 +7,7 @@ singularity:
   freesurfer: /project/6050199/akhanf/singularity/bids-apps/khanlab_freesurfer_v6.0.1-subfields.img
   connectome_workbench: /project/6050199/akhanf/singularity/bids-apps/khanlab_connectome-workbench_latest.sif
   fsl_cuda: /project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif
+  pythondeps: /project/6050199/tkai/singularity/pythondeps-zonaconn_v0.1.0.sif
 
 # Freesurfer license:
 fs_license: /project/6050199/akhanf/opt/freesurfer/.license

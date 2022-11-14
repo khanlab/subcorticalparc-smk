@@ -30,7 +30,8 @@ space
  - Freesurfer (for `mri_convert`, `mris_convert`, `mri_info`)
  - Connectome workbench
  - Neuroglia (contains FSL, ANTS, gnu parallel etc..)
- - FSL6 with CUDA container 
+ - FSL6 with CUDA container
+ - pythondeps-zonaconn (dependencies for python rules) 
 
 _NOTE: Currently the tractography step in the workflow requires a GPU_
  

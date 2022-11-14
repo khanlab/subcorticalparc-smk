@@ -354,6 +354,7 @@ rule save_connmap_template_npz:
         ),
     log:
         "logs/save_connmap_to_template_npz/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
+    container: config["singularity"]["pythondeps"]
     group:
         "participant1"
     script:
@@ -376,6 +377,7 @@ rule gather_connmap_group:
         ),
     log:
         "logs/gather_connmap_group/{hemi}_{seed}_{template}.log",
+    container: config["singularity"]["pythondeps"]
     group:
         "group1"
     script:
@@ -403,6 +405,7 @@ rule spectral_clustering:
         mem_mb=64000,
     log:
         "logs/spectral_clustering/{hemi}_{seed}_{template}.log",
+    container: config["singularity"]["pythondeps"]
     group:
         "group1"
     script:
