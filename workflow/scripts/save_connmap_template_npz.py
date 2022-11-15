@@ -33,5 +33,5 @@ if __name__ == "__main__":
     save_connmap_template(
         mask=snakemake.input.mask,
         connmap_3d=snakemake.params.connmap_3d,
-        connamp_npz=snakemake.output.connmap_npz,
+        connmap_npz=snakemake.output.connmap_npz,
     )
