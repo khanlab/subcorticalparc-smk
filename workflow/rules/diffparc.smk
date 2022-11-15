@@ -163,11 +163,11 @@ rule split_targets:
     input:
         targets=rules.resample_targets.output.targets_res,
     params:
-        target_nums=lambda wildcards: [str(i + 1) for i in range(len(targets))],
+        target_nums=[str(i + 1) for i in range(len(targets))],
         target_seg=lambda wildcards, output: expand(
             "{target_seg_dir}/sub-{subject}_label-{target}_mask.nii.gz",
-            target_seg_dir=output.target_seg_dir,
             subject=wildcards.subject,
+            target_seg_dir=output.target_seg_dir,
             target=targets,
         ),
     output:
@@ -200,8 +200,8 @@ rule gen_targets_txt:
     params:
         target_seg=lambda wildcards, input: expand(
             "{target_seg_dir}/sub-{subject}_label-{target}_mask.nii.gz",
-            target_seg_dir=input.target_seg_dir,
             subject=wildcards.subject,
+            target_seg_dir=input.target_seg_dir,
             target=targets,
         ),
     output:
@@ -223,17 +223,13 @@ rule run_probtrack:
         seed_res=rules.resample_seed.output.seed_res,
         target_txt=rules.gen_targets_txt.output.target_txt,
         mask=rules.resample_brainmask.output.mask,
-        target_seg_dir=bids(
-            root="results/diffparc",
-            subject="{subject}",
-            suffix="targets",
-        ),
+        target_seg_dir=rules.gen_targets_txt.input.target_seg_dir,
     params:
         bedpost_merged=join(
             config["bedpost"]["dir"], config["bedpost"]["merged_prefix"]
         ),
         probtrack_opts=config["probtrack"]["opts"],
-        out_target_seg=lambda wildcards, output: expand(
+        out_target_seg=lambda _, output: expand(
             bids(
                 root=output.probtrack_dir,
                 include_subject_dir=False,
@@ -329,11 +325,7 @@ rule transform_conn_to_template:
 rule save_connmap_template_npz:
     input:
         mask=join(config["seed"]["dir"], config["seed"]["nii"]),
-        probtrack_dir=diffparc_general(
-            hemi="{hemi}",
-            space="{template}",
-            suffix="probtrack",
-        ),
+        probtrack_dir=rules.transform_conn_to_template.input.probtrack_dir,
     params:
         connmap_3d=lambda wildcards, input: expand(
             bids(
