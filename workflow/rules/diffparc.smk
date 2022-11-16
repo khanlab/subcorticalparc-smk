@@ -38,6 +38,39 @@ diffparc_general = partial(
 #########################################################
 
 
+rule probseg_to_binary_template_seed:
+    input:
+        seed=join(config["seed"]["dir"], config["seed"]["nii"]),
+    params:
+        thresh=config["prob_seg_threshold"],
+    output:
+        mask=diffparc_template(
+            suffix="mask.nii.gz",
+        ),
+    log:
+        "logs/probseg_to_binary_template_seed/binary_{template}_hemi-{hemi}_{seed}.log",
+    group:
+        "group0"
+    threads: 8
+    container:
+        config["singularity"]["neuroglia"]
+    shell:
+        "fslmaths {input.seed} -thr {params.thresh} -bin {output.mask} &> {log}"
+
+
+rule dilate_seed:
+    input:
+        mask=rules.probseg_to_binary_template_seed.output.mask,
+    output:
+        mask=diffparc_template(desc="dilatedsmoothed", suffix="mask.nii.gz"),
+    container:
+        config["singularity"]["neuroglia"]
+    group:
+        "group0"
+    shell:
+        "c3d {input.mask} -dilate 1 3x3x3vox -o {output.mask}"
+
+
 # space-T1w (native), dseg
 rule combine_lr_hcp:
     input:
@@ -56,39 +89,6 @@ rule combine_lr_hcp:
         "participant1"
     shell:
         "fslmaths {input.lh} -max {input.rh} {output.lh_rh} &> {log}"
-
-
-rule probseg_to_binary_template_seed:
-    input:
-        seed=join(config["seed"]["dir"], config["seed"]["nii"]),
-    params:
-        thresh=config["prob_seg_threshold"],
-    output:
-        mask=diffparc_template(
-            suffix="mask.nii.gz",
-        ),
-    log:
-        "logs/probseg_to_binary_template_seed/binary_{template}_hemi-{hemi}_{seed}.log",
-    group:
-        "group0"
-    threads: 8
-    container:
-        config["singularity"]["neuroglia"]
-    shell:
-        "fslmaths {input.seed} -thr {params.thresh} {output.mask} &> {log}"
-
-
-rule dilate_seed:
-    input:
-        mask=rules.probseg_to_binary_template_seed.output.mask,
-    output:
-        mask=diffparc_template(desc="dilatedsmoothed", suffix="mask.nii.gz"),
-    container:
-        config["singularity"]["neuroglia"]
-    group:
-        "group0"
-    shell:
-        "c3d {input.mask} -dilate 1 3x3x3vox -o {output.mask}"
 
 
 # transform probabilistic seed to subject
@@ -199,8 +199,8 @@ rule split_targets:
         target_seg=lambda wildcards, output: expand(
             "{target_seg_dir}/sub-{subject}_label-{target}_mask.nii.gz",
             subject=wildcards.subject,
-            target_seg_dir=output.target_seg_dir,
             target=targets,
+            target_seg_dir=output.target_seg_dir,
         ),
     output:
         target_seg_dir=directory(
