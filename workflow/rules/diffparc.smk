@@ -58,11 +58,44 @@ rule combine_lr_hcp:
         "fslmaths {input.lh} -max {input.rh} {output.lh_rh} &> {log}"
 
 
+rule probseg_to_binary_template_seed:
+    input:
+        seed=join(config["seed"]["dir"], config["seed"]["nii"]),
+    params:
+        thresh=config["prob_seg_threshold"],
+    output:
+        mask=diffparc_template(
+            suffix="mask.nii.gz",
+        ),
+    log:
+        "logs/probseg_to_binary_template_seed/binary_{template}_hemi-{hemi}_{seed}.log",
+    group:
+        "group0"
+    threads: 8
+    container:
+        config["singularity"]["neuroglia"]
+    shell:
+        "fslmaths {input.seed} -thr {params.thresh} {output.mask} &> {log}"
+
+
+rule dilate_seed:
+    input:
+        mask=rules.probseg_to_binary_template_seed.output.mask,
+    output:
+        mask=diffparc_template(desc="dilatedsmoothed", suffix="mask.nii.gz"),
+    container:
+        config["singularity"]["neuroglia"]
+    group:
+        "group0"
+    shell:
+        "c3d {input.mask} -dilate 1 3x3x3vox -o {output.mask}"
+
+
 # transform probabilistic seed to subject
 # space-T1w,  probseg
 rule seed_to_subject:
     input:
-        seed=join(config["seed"]["dir"], config["seed"]["nii"]),
+        seed=rules.dilate_seed.output.mask,
         ref=rules.combine_lr_hcp.output.lh_rh,
         invwarp=config["transforms"]["ants_invwarp"],
     output:
@@ -70,7 +103,7 @@ rule seed_to_subject:
             hemi="{hemi}",
             label="{seed}",
             from_="{template}",
-            suffix="probseg.nii.gz",
+            suffix="mask.nii.gz",
         ),
     container:
         config["singularity"]["neuroglia"]
@@ -130,7 +163,7 @@ rule resample_targets:
     group:
         "participant1"
     shell:
-        "reg_resample -flo {input.targets} -res {output.targets_res} -ref {input.mask_res} -NN 0  &> {log}"
+        "reg_resample -flo {input.targets} -res {output.targets_res} -ref {input.mask_res} -inter 0  &> {log}"
 
 
 # resamples seed seg to match resampled dwi mask
@@ -138,14 +171,14 @@ rule resample_targets:
 rule resample_seed:
     input:
         mask_res=rules.resample_brainmask.output.mask_res,
-        seed=rules.seed_to_subject.output.seed,
+        seed=rules.dilate_seed.output.mask,
     output:
         seed_res=diffparc_subject(
             hemi="{hemi}",
             label="{seed}",
             from_="{template}",
             res="dwi",
-            suffix="probseg.nii.gz",
+            suffix="mask.nii.gz",
         ),
     container:
         config["singularity"]["neuroglia"]
@@ -154,8 +187,7 @@ rule resample_seed:
     group:
         "participant1"
     shell:
-        #linear interp here now, since probabilistic seg
-        "reg_resample -flo {input.seed} -res {output.seed_res} -ref {input.mask_res} -NN 0 &> {log}"
+        "reg_resample -flo {input.seed} -res {output.seed_res} -ref {input.mask_res} -inter 0 &> {log}"
 
 
 # space-T1w, mask
@@ -275,7 +307,7 @@ rule transform_conn_to_template:
             suffix="probtrack",
         ),
         warp=config["transforms"]["ants_warp"],
-        ref=join(config["seed"]["dir"], config["seed"]["nii"]),
+        ref=rules.probseg_to_binary_template_seed.output.mask,
     params:
         in_connmap_3d=lambda wildcards, input: expand(
             bids(
@@ -324,8 +356,12 @@ rule transform_conn_to_template:
 # space-{template}
 rule save_connmap_template_npz:
     input:
-        mask=join(config["seed"]["dir"], config["seed"]["nii"]),
-        probtrack_dir=rules.transform_conn_to_template.input.probtrack_dir,
+        mask=rules.probseg_to_binary_template_seed.output.mask,
+        probtrack_dir=diffparc_general(
+            hemi="{hemi}",
+            space="{template}",
+            suffix="probtrack",
+        ),
     params:
         connmap_3d=lambda wildcards, input: expand(
             bids(
@@ -346,7 +382,8 @@ rule save_connmap_template_npz:
         ),
     log:
         "logs/save_connmap_to_template_npz/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
-    container: config["singularity"]["pythondeps"]
+    container:
+        config["singularity"]["pythondeps"]
     group:
         "participant1"
     script:
@@ -369,7 +406,8 @@ rule gather_connmap_group:
         ),
     log:
         "logs/gather_connmap_group/{hemi}_{seed}_{template}.log",
-    container: config["singularity"]["pythondeps"]
+    container:
+        config["singularity"]["pythondeps"]
     group:
         "group1"
     script:
@@ -397,7 +435,8 @@ rule spectral_clustering:
         mem_mb=64000,
     log:
         "logs/spectral_clustering/{hemi}_{seed}_{template}.log",
-    container: config["singularity"]["pythondeps"]
+    container:
+        config["singularity"]["pythondeps"]
     group:
         "group1"
     script:
