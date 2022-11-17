@@ -18,7 +18,7 @@ rule transform_clus_to_subj:
             allow_missing=True,
         ),
         invwarp=config["transforms"]["ants_invwarp"],
-        ref=rules.combine_lr_hcp.output.lh_rh,
+        ref=join(config["bedpost"]["dir"], config["bedpost"]["ref"]),
     output:
         cluster_k=expand(
             bids(

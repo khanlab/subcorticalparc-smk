@@ -52,6 +52,7 @@ bedpost:
   dir: /project/6050199/ext-data/hcp1200/HCP_1200_T1w_Diffusion_FS
   samples: '{subject}/T1w/Diffusion_7T.bedpostX/mean_S0samples.nii.gz'
   merged_prefix: '{subject}/T1w/Diffusion_7T.bedpostX/merged'
+  ref: '{subject}/T1w/T1w_acpc_dc_restore_brain.nii.gz'
 
 # Max no. of clusters (will perform with k=range(2,max_k+1))
 max_k: 8

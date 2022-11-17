@@ -96,7 +96,7 @@ rule combine_lr_hcp:
 rule seed_to_subject:
     input:
         seed=rules.dilate_seed.output.mask,
-        ref=rules.combine_lr_hcp.output.lh_rh,
+        ref=join(config["bedpost"]["dir"], config["bedpost"]["ref"]),
         invwarp=config["transforms"]["ants_invwarp"],
     output:
         seed=diffparc_subject(
@@ -171,7 +171,7 @@ rule resample_targets:
 rule resample_seed:
     input:
         mask_res=rules.resample_brainmask.output.mask_res,
-        seed=rules.dilate_seed.output.mask,
+        seed=rules.seed_to_subject.output.seed,
     output:
         seed_res=diffparc_subject(
             hemi="{hemi}",
