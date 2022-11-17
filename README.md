@@ -43,7 +43,7 @@ snakemake -np --profile cc-slurm
  `--group-components` is not recommended as it can lead to 
  over-subscribed GPUs when run on graham (TODO: fix this)
 
- ## Tractmap processing
+ <!-- ## Tractmap processing
  Click the toggle to see recommendations for processing data on Graham (via
  Digital Alliance).
  <details>
@@ -79,7 +79,7 @@ snakemake -np --profile cc-slurm
  To run on all subjects in a participants.tsv file, use:
  <pre><code>./submit_tractmaps config/participants.tsv</code></pre>
  </details>
- <br>
+ <br> -->
 
 ## Authors
 
