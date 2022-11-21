@@ -42,7 +42,7 @@ rule probseg_to_binary_template_seed:
     input:
         seed=join(config["seed"]["dir"], config["seed"]["nii"]),
     params:
-        thresh=config["prob_seg_threshold"],
+        thresh=config["prob_seg_threshold"] * 100,
     output:
         mask=diffparc_template(
             suffix="mask.nii.gz",
@@ -55,7 +55,7 @@ rule probseg_to_binary_template_seed:
     container:
         config["singularity"]["neuroglia"]
     shell:
-        "fslmaths {input.seed} -thr {params.thresh} -bin {output.mask} &> {log}"
+        "fslmaths {input.seed} -thrP {params.thresh} -bin {output.mask} &> {log}"
 
 
 rule dilate_seed:

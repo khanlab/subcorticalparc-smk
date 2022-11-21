@@ -37,9 +37,7 @@ seed:
   dir: /scratch/tkai/zona/misc/zona_parcellations/MNI152NLin6Asym
   nii: sub-SNSX32NLin2020Asym_space-MNI152NLin6Asym_hemi-{hemi}_desc-{seed}_prob.nii.gz
   structures:
-    ZI: ZI
-    # cZI: cZI
-    # rZI: rZI
+    ZIR: ZIR
 
 # Target segmentations
 target:
