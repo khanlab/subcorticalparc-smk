@@ -37,7 +37,7 @@ _NOTE: Currently the tractography step in the workflow requires a GPU_
  
 
 ## RECOMMENDED EXECUTION: 
-snakemake --omit-from resample_clus_seed --profile cc-slurm
+snakemake --profile cc-slurm
 
  - Further job grouping (beyond 1 job per subject) on graham with 
  `--group-components` is not recommended as it can lead to 
