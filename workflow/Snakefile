@@ -36,18 +36,38 @@ include: "rules/common.smk"
 
 rule all_diffparc:
     input:
-        group_tractseg=expand(
+        # group_tractseg=expand(
+        #     bids(
+        #         root="results/tractmap",
+        #         template="{template}",
+        #         hemi="{hemi}",
+        #         label="{seed}",
+        #         method="spectralcosine",
+        #         k="{k}",
+        #         desc="avgtractmap",
+        #         suffix="dseg.nii.gz",
+        #     ),
+        #     template=config["template"],
+        #     seed=seeds,
+        #     hemi=hemis,
+        #     k=range(2, config["max_k"] + 1),
+        # ),
+        # Input below would result in same as --omit-from resample_clus_seed
+        cluster_k=expand(
             bids(
                 root="results/tractmap",
-                template="{template}",
+                subject="{subject}",
+                space="individual",
                 hemi="{hemi}",
                 label="{seed}",
                 method="spectralcosine",
                 k="{k}",
-                desc="avgtractmap",
+                from_="{template}",
+                desc="sorted",
                 suffix="dseg.nii.gz",
             ),
-            template=config["template"],
+            subject=subjects,
+            template=template,
             seed=seeds,
             hemi=hemis,
             k=range(2, config["max_k"] + 1),
