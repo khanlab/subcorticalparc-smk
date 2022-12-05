@@ -1,26 +1,26 @@
 import pandas as pd
 from os.path import join
 
-configfile: 'config/config.yml'
 
-#load participants.tsv file, and strip off sub- from participant_id column
-df = pd.read_table(config['participants_tsv'])
-subjects = df.participant_id.to_list() 
-subjects = [ s.strip('sub-') for s in subjects ]
+configfile: "config/config.yml"
 
 
+# Load participants.tsv and strip off 'sub-'
+df = pd.read_table(config["participants_tsv"])
+subjects = df["participant_id"].str.strip("sub-").to_list()
 
-#get list of ROIs
-df_targets = pd.read_table(config['targets_dseg_tsv'])
+# Get list of ROIs
+df_targets = pd.read_table(config["target"]["cortical"]["tsv"])
 targets = df_targets.name.to_list()
 
+# Get seeds, as structure keys
+seeds = config["seed"]["structures"].keys()
+
+# Hemis
+hemis = ["L", "R"]
 
 
-#get seeds, as keys in template_binary_mask
-seeds = config['template_binary_mask'].keys()
-
-
-#bids-naming for subject and template (only alphanumeric characters)
+# bids-naming for subject and template (only alphanumeric characters)
 wildcard_constraints:
     subject="[a-zA-Z0-9]+",
     template="[a-zA-Z0-9]+",
@@ -28,15 +28,52 @@ wildcard_constraints:
     k="[0-9]+",
 
 
-template=config['template']
+template = config["template"]
 
 
-include: 'rules/common.smk'
+include: "rules/common.smk"
+
 
 rule all_diffparc:
     input:
-      group_tractseg = expand(bids(root='results/tractmap',template='{template}',label='{seed}',method='spectralcosine',k='{k}',desc='avgtractmap',suffix='dseg.nii.gz'),template=config['template'],seed=seeds,k=range(2,config['max_k']+1))
+        # group_tractseg=expand(
+        #     bids(
+        #         root="results/tractmap",
+        #         template="{template}",
+        #         hemi="{hemi}",
+        #         label="{seed}",
+        #         method="spectralcosine",
+        #         k="{k}",
+        #         desc="avgtractmap",
+        #         suffix="dseg.nii.gz",
+        #     ),
+        #     template=config["template"],
+        #     seed=seeds,
+        #     hemi=hemis,
+        #     k=range(2, config["max_k"] + 1),
+        # ),
+        # Input below would result in same as --omit-from resample_clus_seed
+        cluster_k=expand(
+            bids(
+                root="results/tractmap",
+                subject="{subject}",
+                space="individual",
+                hemi="{hemi}",
+                label="{seed}",
+                method="spectralcosine",
+                k="{k}",
+                from_="{template}",
+                desc="sorted",
+                suffix="dseg.nii.gz",
+            ),
+            subject=subjects,
+            template=template,
+            seed=seeds,
+            hemi=hemis,
+            k=range(2, config["max_k"] + 1),
+        ),
 
-include: 'rules/hcp_mmp.smk'
-include: 'rules/diffparc.smk'
-include: 'rules/tractmap.smk'
+
+include: "rules/hcp_mmp.smk"
+include: "rules/diffparc.smk"
+include: "rules/tractmap.smk"

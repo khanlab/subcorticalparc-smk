@@ -1,2 +1,12 @@
+# Unneeded snakemake files
 .snakemake
-.*
+
+# Dev
+.parallel/
+logs/
+results/
+freesurfer/
+hcp/
+
+# Misc
+.deprecated/
