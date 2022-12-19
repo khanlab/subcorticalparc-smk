@@ -3,7 +3,7 @@ from functools import partial
 # BIDS partials
 hcp_mmp_bids = partial(
     bids,
-    root="results/hcp_mmp",
+    root="results/hcp_mmp/dwi",
     subject="{subject}",
     label="hcpmmp",
     space="native",
@@ -48,7 +48,7 @@ rule probseg_to_binary_template_seed:
             suffix="mask.nii.gz",
         ),
     log:
-        "logs/probseg_to_binary_template_seed/binary_{template}_hemi-{hemi}_{seed}.log",
+        "logs/diffparc/probseg_to_binary_template_seed/binary_{template}_hemi-{hemi}_{seed}.log",
     group:
         "group0"
     threads: 8
@@ -84,7 +84,7 @@ rule combine_lr_hcp:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/combine_lr_hcp/{subject}.log",
+        "logs/diffparc/combine_lr_hcp/{subject}.log",
     group:
         "participant1"
     shell:
@@ -108,7 +108,7 @@ rule seed_to_subject:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/seed_to_subject/{template}_sub-{subject}_hemi-{hemi}_{seed}.log",
+        "logs/diffparc/seed_to_subject/{template}_sub-{subject}_hemi-{hemi}_{seed}.log",
     group:
         "participant1"
     threads: 8
@@ -136,7 +136,7 @@ rule resample_brainmask:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/resample_brainmask/sub-{subject}.log",
+        "logs/diffparc/resample_brainmask/sub-{subject}.log",
     group:
         "participant1"
     shell:
@@ -159,7 +159,7 @@ rule resample_targets:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/resample_targets/sub-{subject}.log",
+        "logs/diffparc/resample_targets/sub-{subject}.log",
     group:
         "participant1"
     shell:
@@ -183,7 +183,7 @@ rule resample_seed:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/resample_seed/{template}_sub-{subject}_hemi-{hemi}_{seed}.log",
+        "logs/diffparc/resample_seed/{template}_sub-{subject}_hemi-{hemi}_{seed}.log",
     group:
         "participant1"
     shell:
@@ -213,7 +213,7 @@ rule split_targets:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/split_targets/sub-{subject}.log",
+        "logs/diffparc/split_targets/sub-{subject}.log",
     threads: 32
     group:
         "participant1"
@@ -239,7 +239,7 @@ rule gen_targets_txt:
     output:
         target_txt="results/diffparc/sub-{subject}/targets.txt",
     log:
-        "logs/get_targets_txt/sub-{subject}.log",
+        "logs/diffparc/get_targets_txt/sub-{subject}.log",
     group:
         "participant1"
     run:
@@ -287,7 +287,7 @@ rule run_probtrack:
         time=30,  #30 mins
         gpus=1,  #1 gpu
     log:
-        "logs/run_probtrack/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
+        "logs/diffparc/run_probtrack/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
     group:
         "participant1"
     shell:
@@ -345,7 +345,7 @@ rule transform_conn_to_template:
     resources:
         mem_mb=128000,
     log:
-        "logs/transform_conn_to_template/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
+        "logs/diffparc/transform_conn_to_template/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
     group:
         "participant1"
     shell:
@@ -381,13 +381,13 @@ rule save_connmap_template_npz:
             suffix="connMap.npz",
         ),
     log:
-        "logs/save_connmap_to_template_npz/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
+        "logs/diffparc/save_connmap_to_template_npz/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
     container:
         config["singularity"]["pythondeps"]
     group:
         "participant1"
     script:
-        "../scripts/save_connmap_template_npz.py"
+        "../scripts/diffparc/save_connmap_template_npz.py"
 
 
 # space-{template}
@@ -405,13 +405,13 @@ rule gather_connmap_group:
             suffix="connMap.npz",
         ),
     log:
-        "logs/gather_connmap_group/{hemi}_{seed}_{template}.log",
+        "logs/diffparc/gather_connmap_group/{hemi}_{seed}_{template}.log",
     container:
         config["singularity"]["pythondeps"]
     group:
-        "group1"
+        "diffparc_group1"
     script:
-        "../scripts/gather_connmap_group.py"
+        "../scripts/diffparc/gather_connmap_group.py"
 
 
 # space-{template},  dseg
@@ -434,13 +434,13 @@ rule spectral_clustering:
     resources:
         mem_mb=64000,
     log:
-        "logs/spectral_clustering/{hemi}_{seed}_{template}.log",
+        "logs/diffparc/spectral_clustering/{hemi}_{seed}_{template}.log",
     container:
         config["singularity"]["pythondeps"]
     group:
-        "group1"
+        "diffparc_group1"
     script:
-        "../scripts/spectral_clustering.py"
+        "../scripts/diffparc/spectral_clustering.py"
 
 
 # sorting the cluster label by AP, sorted = desc
@@ -452,7 +452,7 @@ rule sort_cluster_label:
             k="{k}",
             suffix="dseg.nii.gz",
         ),
-        shell_script="workflow/scripts/sort_labels_by_ap.sh",
+        shell_script="workflow/scripts/diffparc/sort_labels_by_ap.sh",
     output:
         seg=diffparc_template(
             from_="group",
@@ -464,9 +464,9 @@ rule sort_cluster_label:
     container:
         config["singularity"]["neuroglia"]
     group:
-        "group1"
+        "diffparc_group1"
     log:
-        "logs/sort_cluster_label/{hemi}_{seed}_{template}_{k}.log",
+        "logs/diffparc/sort_cluster_label/{hemi}_{seed}_{template}_{k}.log",
     shadow:
         "minimal"  #run in shadow dir to avoid conflicts between centroids txt files
     shell:

@@ -4,19 +4,19 @@ from functools import partial
 H_to_hemi = dict({"L": "lh", "R": "rh"})
 
 
-hcp_mmp_bids = partial(
+hcp_mmp_diff = partial(
     bids,
-    root="results/hcp_mmp",
+    root="results/hcp_mmp/dwi",
     subject="{subject}",
     hemi="{hemi}",
 )
-
 
 wildcard_constraints:
     surfname="white|pial|sphere.reg",
     volname="T1",
 
 
+# Diffparc
 rule extract_from_tar:
     input:
         tar=config["freesurfer"]["tar"],
@@ -33,7 +33,7 @@ rule extract_from_tar:
     shadow:
         "minimal"
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "mkdir -p {params.out_folder} && tar --extract --file={input.tar} {params.file_in_tar} && "
         "mv {params.file_in_tar} {output.filename}"
@@ -57,7 +57,7 @@ rule convert_to_gifti:
     input:
         get_gifti_input,
     output:
-        hcp_mmp_bids(
+        hcp_mmp_diff(
             space="fsaverage",
             suffix="{surfname}.surf.gii",
         ),
@@ -66,9 +66,9 @@ rule convert_to_gifti:
     container:
         config["singularity"]["freesurfer"]
     log:
-        "logs/convert_to_gifti/sub-{subject}_{hemi}_{surfname}.log",
+        "logs/diffparc/convert_to_gifti/sub-{subject}_{hemi}_{surfname}.log",
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "FS_LICENSE={params.license} mris_convert {input} {output} &> {log}"
 
@@ -87,9 +87,9 @@ rule convert_to_nifti:
     container:
         config["singularity"]["freesurfer"]
     log:
-        "logs/convert_to_nifti/sub-{subject}_{volname}.log",
+        "logs/diffparc/convert_to_nifti/sub-{subject}_{volname}.log",
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "FS_LICENSE={params.license} mri_convert {input} {output} &> {log}"
 
@@ -110,9 +110,9 @@ rule get_tkr2scanner:
     container:
         config["singularity"]["freesurfer"]
     log:
-        "logs/get_tkr2scanner/sub-{subject}.log",
+        "logs/diffparc/get_tkr2scanner/sub-{subject}.log",
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "FS_LICENSE={params.license} mri_info {input.t1} --tkr2scanner > {output.tkr2scanner} 2> {log}"
 
@@ -122,7 +122,7 @@ rule apply_surf_tkr2scanner:
         surf=rules.convert_to_gifti.output,
         tkr2scanner=rules.get_tkr2scanner.output.tkr2scanner,
     output:
-        surf=hcp_mmp_bids(
+        surf=hcp_mmp_diff(
             space="native",
             suffix="{surfname}.surf.gii",
         ),
@@ -130,25 +130,25 @@ rule apply_surf_tkr2scanner:
     container:
         config["singularity"]["connectome_workbench"]
     log:
-        "logs/apply_surf_tkr2scanner/sub-{subject}_{hemi}_{surfname}.log",
+        "logs/diffparc/apply_surf_tkr2scanner/sub-{subject}_{hemi}_{surfname}.log",
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "wb_command -surface-apply-affine {input.surf} {input.tkr2scanner} {output.surf} &> {log}"
 
 
 rule gen_midthickness:
     input:
-        white=hcp_mmp_bids(
+        white=hcp_mmp_diff(
             space="{space}",
             suffix="white.surf.gii",
         ),
-        pial=hcp_mmp_bids(
+        pial=hcp_mmp_diff(
             space="{space}",
             suffix="pial.surf.gii",
         ),
     output:
-        midthickness=hcp_mmp_bids(
+        midthickness=hcp_mmp_diff(
             space="{space}",
             suffix="midthickness.surf.gii",
         ),
@@ -156,20 +156,20 @@ rule gen_midthickness:
         config["singularity"]["connectome_workbench"]
     threads: 8
     log:
-        "logs/gen_midthickness/sub-{subject}_{hemi}_{space}.log",
+        "logs/diffparc/gen_midthickness/sub-{subject}_{hemi}_{space}.log",
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "wb_command -surface-average {output.midthickness} -surf {input.white} -surf {input.pial} &> {log}"
 
 
 rule resample_subj_to_fsaverage_sphere:
     input:
-        surf=hcp_mmp_bids(
+        surf=hcp_mmp_diff(
             space="fsaverage",
             suffix="midthickness.surf.gii",
         ),
-        current_sphere=hcp_mmp_bids(
+        current_sphere=hcp_mmp_diff(
             space="fsaverage",
             suffix="sphere.reg.surf.gii",
         ),
@@ -178,7 +178,7 @@ rule resample_subj_to_fsaverage_sphere:
     params:
         method="BARYCENTRIC",
     output:
-        surf=hcp_mmp_bids(
+        surf=hcp_mmp_diff(
             space="fsLR",
             den="32k",
             suffix="midthickness.surf.gii",
@@ -187,9 +187,9 @@ rule resample_subj_to_fsaverage_sphere:
         config["singularity"]["connectome_workbench"]
     threads: 8
     log:
-        "logs/resample_subj_to_fsaverage_sphere/sub-{subject}_{hemi}.log",
+        "logs/diffparc/resample_subj_to_fsaverage_sphere/sub-{subject}_{hemi}.log",
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "wb_command -surface-resample {input.surf} {input.current_sphere} {input.new_sphere} {params.method} {output.surf} &> {log}"
 
@@ -201,19 +201,19 @@ rule resample_labels_to_subj_sphere:
         ),
         current_sphere=lambda wildcards: "resources/standard_mesh_atlases/resample_fsaverage/"
         "fs_LR-deformed_to-fsaverage.{hemi}.sphere.32k_fs_LR.surf.gii",
-        new_sphere=hcp_mmp_bids(
+        new_sphere=hcp_mmp_diff(
             space="fsaverage",
             suffix="sphere.reg.surf.gii",
         ),
         current_surf=rules.resample_subj_to_fsaverage_sphere.output.surf,
-        new_surf=hcp_mmp_bids(
+        new_surf=hcp_mmp_diff(
             space="fsaverage",
             suffix="midthickness.surf.gii",
         ),
     params:
         method="ADAP_BARY_AREA",
     output:
-        label=hcp_mmp_bids(
+        label=hcp_mmp_diff(
             label="hcpmmp",
             space="native",
             suffix="dseg.label.gii",
@@ -222,9 +222,9 @@ rule resample_labels_to_subj_sphere:
         config["singularity"]["connectome_workbench"]
     threads: 8
     log:
-        "logs/resample_labels_to_subj_sphere/sub-{subject}_{hemi}.log",
+        "logs/diffparc/resample_labels_to_subj_sphere/sub-{subject}_{hemi}.log",
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "wb_command -label-resample {input.label} {input.current_sphere} {input.new_sphere}"
         " {params.method} {output.label}"
@@ -234,23 +234,23 @@ rule resample_labels_to_subj_sphere:
 rule map_labels_to_volume_ribbon:
     input:
         label=rules.resample_labels_to_subj_sphere.output.label,
-        surf=hcp_mmp_bids(
+        surf=hcp_mmp_diff(
             space="native",
             suffix="midthickness.surf.gii",
         ),
         vol_ref=bids(
             root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
         ),
-        white_surf=hcp_mmp_bids(
+        white_surf=hcp_mmp_diff(
             space="native",
             suffix="white.surf.gii",
         ),
-        pial_surf=hcp_mmp_bids(
+        pial_surf=hcp_mmp_diff(
             space="native",
             suffix="pial.surf.gii",
         ),
     output:
-        label_vol=hcp_mmp_bids(
+        label_vol=hcp_mmp_diff(
             label="hcpmmp",
             space="native",
             suffix="dseg.nii.gz",
@@ -259,9 +259,9 @@ rule map_labels_to_volume_ribbon:
         config["singularity"]["connectome_workbench"]
     threads: 8
     log:
-        "logs/map_labels_to_volume_ribbon/sub-{subject}_{hemi}.log",
+        "logs/diffparc/map_labels_to_volume_ribbon/sub-{subject}_{hemi}.log",
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "wb_command -label-to-volume-mapping {input.label} {input.surf} {input.vol_ref} {output.label_vol}"
         " -ribbon-constrained {input.white_surf} {input.pial_surf}"
@@ -272,25 +272,25 @@ rule map_labels_to_volume_ribbon:
 rule map_labels_to_volume_wmboundary:
     input:
         label=rules.resample_labels_to_subj_sphere.output.label,
-        surf=hcp_mmp_bids(
+        surf=hcp_mmp_diff(
             suffix="white.surf.gii",
             space="native",
         ),
         vol_ref=bids(
             root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
         ),
-        white_surf=hcp_mmp_bids(
+        white_surf=hcp_mmp_diff(
             suffix="white.surf.gii",
             space="native",
         ),
-        pial_surf=hcp_mmp_bids(
+        pial_surf=hcp_mmp_diff(
             suffix="pial.surf.gii",
             space="native",
         ),
     params:
         nearest_vertex="{wmbdy}",
     output:
-        label_vol=hcp_mmp_bids(
+        label_vol=hcp_mmp_diff(
             space="native",
             label="hcpmmp",
             desc="wmbound{wmbdy}",
@@ -300,9 +300,65 @@ rule map_labels_to_volume_wmboundary:
         config["singularity"]["connectome_workbench"]
     threads: 8
     log:
-        "logs/map_labels_to_volume_wmboundary/sub-{subject}_{hemi}_wmbound-{wmbdy}.log",
+        "logs/diffparc/map_labels_to_volume_wmboundary/sub-{subject}_{hemi}_wmbound-{wmbdy}.log",
     group:
-        "participant1"
+        "diffparc_participant1"
     shell:
         "wb_command -label-to-volume-mapping {input.label} {input.surf} {input.vol_ref} {output.label_vol}"
         " -nearest-vertex {params.nearest_vertex} &> {log}"
+
+# Funcparc
+rule extract_from_zip:
+    input:
+        packages=expand(
+            join(config["hcp_func"]["dir"], "{subject}_{package}.zip"),
+            package=config["hcp_func"]["icafix_package_dict"].values(),
+            allow_missing=True,
+        )
+    params:
+        files_in_pkg=expand(
+            "{filename}",
+            filename=config['hcp_func']['icafix_package_dict'].keys(),    
+        ),
+    output:
+        files=expand(
+            "results/hcp_func/data/{filename}",
+            filename=config['hcp_func']['icafix_package_dict'].keys(),
+        )
+    group: "funcparc_participant1"
+    run:
+        for pkg, f in zip(input.packages, params.files_in_pkg):
+            shell("unzip -n {pkg} {f} -d results/hcp_func/data")
+
+
+rule merge_roi:
+    '''Create custom subcortical atlas, labelling seed as 16 (brainstem) for wb'''
+    input:
+        atlas = "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_workbench.nii.gz",
+        roi = "resources/funcparc/sub-SNSX32NLin2020Asym_space-MNI152NLin6Asym_hemi-LR_desc-ZIR_res-1p6mm_mask.nii.gz",
+    output:
+        out_fpath = "results/hcp_func/group/atlas/seed-{seed}_BigBrain{vox_res}.nii.gz",
+    container: 
+        config["singularity"]["pythondeps"]
+    group: 
+        "funcparc_group1"
+    script: 
+        "../scripts/funcparc/merge_rois.py"
+
+
+rule create_atlas:
+    '''Combine ZIR and BigBrain subcortical labels'''
+    input:
+        atlas = rules.merge_roi.output.out_fpath,
+        labels = "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_labels.txt",
+        lh_mmp = "resources/standard_mesh_atlases/lh.hcp-mmp.59k_fs_LR.label.gii",
+        rh_mmp = "resources/standard_mesh_atlases/rh.hcp-mmp.59k_fs_LR.label.gii",
+    output:
+        nifti = 'results/hcp_func/group/atlas/seed-{seed}_HCP_MMP_BigBrain{vox_res}.nii.gz',
+        cifti = 'results/hcp_func/group/atlas/seed-{seed}_HCP_MMP_BigBrain{vox_res}.dlabel.nii',
+    container: config['singularity']['connectome_workbench']
+    group:
+        "funcparc_group1"
+    shell:
+        "wb_command -volume-label-import {input.atlas} {input.labels} {output.nifti} && "
+        "wb_command -cifti-create-label {output.cifti} -volume {output.nifti} {output.nifti} -left-label {input.lh_mmp} -right-label {input.rh_mmp}"

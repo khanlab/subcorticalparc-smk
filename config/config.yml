@@ -5,6 +5,7 @@ participants_tsv: 'config/participants/hcptest_participants.tsv' # Test particip
 singularity:
   neuroglia: /project/6050199/akhanf/singularity/bids-apps/khanlab_neuroglia-core_latest.sif
   freesurfer: /project/6050199/akhanf/singularity/bids-apps/khanlab_freesurfer_v6.0.1-subfields.img
+  ciftify: /project/6050199/akhanf/singularity/bids-apps/tigrlab_fmriprep_ciftify_v1.3.2-2.3.3.sif
   connectome_workbench: /project/6050199/akhanf/singularity/bids-apps/khanlab_connectome-workbench_latest.sif
   fsl_cuda: /project/6050199/akhanf/singularity/bids-apps/fsl_6.0.3_cuda9.1.sif
   pythondeps: /project/6050199/tkai/singularity/pythondeps-zonaconn_v0.1.0.sif
@@ -19,6 +20,44 @@ freesurfer:
   subject: 'freesurfer/sub-{subject}'
   root: 'freesurfer'
   tar: /project/6050199/ext-data/hcp1200/HCP_1200_T1w_Diffusion_FS/{subject}/T1w/{subject}.freesurfer.tar
+
+hcp_func:
+  dir: /project/6050199/ext-data/hcp1200/zipfiles
+  packages: 
+    - 7T_REST_1.6mm_preproc
+    - 7T_REST_preproc_extended
+    - 3T_Structural_1.6mm_preproc
+    - 7T_REST_fixextended
+  icafix_package_dict:
+    '{subject}/MNINonLinear/Results/rfMRI_REST1_7T_PA/rfMRI_REST1_7T_PA_hp2000_clean.nii.gz': 7T_REST_fixextended
+    '{subject}/MNINonLinear/Results/rfMRI_REST2_7T_AP/rfMRI_REST2_7T_AP_hp2000_clean.nii.gz': 7T_REST_fixextended
+    '{subject}/MNINonLinear/Results/rfMRI_REST3_7T_PA/rfMRI_REST3_7T_PA_hp2000_clean.nii.gz': 7T_REST_fixextended
+    '{subject}/MNINonLinear/Results/rfMRI_REST4_7T_AP/rfMRI_REST4_7T_AP_hp2000_clean.nii.gz': 7T_REST_fixextended
+    '{subject}/MNINonLinear/Results/rfMRI_REST1_7T_PA/rfMRI_REST1_7T_PA_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii': 7T_REST_1.6mm_fix
+    '{subject}/MNINonLinear/Results/rfMRI_REST2_7T_AP/rfMRI_REST2_7T_AP_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii': 7T_REST_1.6mm_fix
+    '{subject}/MNINonLinear/Results/rfMRI_REST3_7T_PA/rfMRI_REST3_7T_PA_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii': 7T_REST_1.6mm_fix
+    '{subject}/MNINonLinear/Results/rfMRI_REST4_7T_AP/rfMRI_REST4_7T_AP_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii': 7T_REST_1.6mm_fix
+    '{subject}/MNINonLinear/Results/rfMRI_REST1_7T_PA/Movement_Regressors_dt.txt': 7T_REST_1.6mm_preproc
+    '{subject}/MNINonLinear/Results/rfMRI_REST2_7T_AP/Movement_Regressors_dt.txt': 7T_REST_1.6mm_preproc 
+    '{subject}/MNINonLinear/Results/rfMRI_REST3_7T_PA/Movement_Regressors_dt.txt': 7T_REST_1.6mm_preproc
+    '{subject}/MNINonLinear/Results/rfMRI_REST4_7T_AP/Movement_Regressors_dt.txt': 7T_REST_1.6mm_preproc 
+    '{subject}/MNINonLinear/ROIs/Atlas_wmparc.1.60.nii.gz': 3T_Structural_1.6mm_preproc
+    '{subject}/MNINonLinear/T1w_restore.1.60.nii.gz': 3T_Structural_1.6mm_preproc
+    '{subject}/MNINonLinear/xfms/acpc_dc2standard.nii.gz': 3T_Structural_preproc
+    '{subject}/MNINonLinear/T1w.nii.gz': 3T_Structural_preproc
+    '{subject}/T1w/T1w_acpc_dc.nii.gz': 3T_Structural_preproc
+  runs:
+    - rfMRI_REST1_7T_PA
+    - rfMRI_REST2_7T_AP
+    - rfMRI_REST3_7T_PA
+    - rfMRI_REST4_7T_AP
+  sigma: 1.6
+  voxel_size: 1p6mm
+
+# Ciftify cleaning
+ciftify-clean:
+  hcp: 'resources/funcparc/ciftify_cleaning_wmcsf.json'
+  general: 'resources/funcparc/ciftify_cleaning.json'
 
 # Template
 template: MNI152NLin6Asym

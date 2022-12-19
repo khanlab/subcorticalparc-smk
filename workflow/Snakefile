@@ -30,11 +30,13 @@ wildcard_constraints:
 
 template = config["template"]
 
-
 include: "rules/common.smk"
+include: "rules/hcp_mmp.smk"
+include: "rules/diffparc.smk"
+include: "rules/tractmap.smk"
+include: "rules/funcparc.smk"
 
-
-rule all_diffparc:
+rule diffparc:
     input:
         # group_tractseg=expand(
         #     bids(
@@ -74,6 +76,15 @@ rule all_diffparc:
         ),
 
 
-include: "rules/hcp_mmp.smk"
-include: "rules/diffparc.smk"
-include: "rules/tractmap.smk"
+rule funcparc:
+    input: 
+        atlas=expand(
+            rules.func_clustering.output.niftis,
+            seed=seeds, 
+            vox_res=config['hcp_func']['voxel_size'],
+        ),
+        cluster=expand(
+            rules.func_clustering.output.labels,
+            seed=seeds, 
+            vox_res=config['hcp_func']['voxel_size'],
+        )
