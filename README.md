@@ -86,6 +86,7 @@ snakemake --profile cc-slurm
 * Ali Khan @akhanf 
 * Sudesna Chakraborty
 * Jason Kai
+* Roy Haast
 
 ## Reference
 
