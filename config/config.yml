@@ -1,5 +1,73 @@
-#participants_tsv: 'config/participants/hcp7T_participants.tsv'
-participants_tsv: 'config/participants/hcptest_participants.tsv' # Test participants
+bids_dir = "/path/to/bids/dir"
+output_dir = "/path/to/output/dir" # don't use "."
+
+snakebids_dir: "." # DO NOT MODIFY - used to refer to files need by workflow running with CLI
+
+debug: False # Enable printing of debug statements during parsing -- disable if generating dag visualizations
+
+derivatives: False # Search in bids/derivatives if True; can also be path(s) to derivatives datasets
+
+# List of analysis levels in bids app
+analysis_levels: &analysis_levels
+  - participant
+  - participant_struct
+  - participant_func
+
+# Mapping from analysis_level to set of target rules or files
+targets_by_analysis_level:
+  participant:
+    - "all" # if "", then the first rule is run
+  participant_struct:
+    - "diffparc"
+  participant_func:
+    - "funcparc"
+
+# this configures the pybids grabber - create an entry for each type of input you want to grab
+# indexed by name of input dictionary for each input is passed directly to pybids get()
+# https://bids-standard.github.io/pybids/generated/bids.layout.BIDSLayout.html#bids.layout.BIDSLayout.get
+pybids_inputs:
+  T1w:
+    filters:
+      suffix: "T1w"
+      extension: ".nii.gz"
+      datatype: "anat"
+    wildcards:
+      - subject
+
+#--- core BIDS-app options --- (do not modify below) ---#
+  bids_dir:
+    help: The directory with the input dataset formatted according to the
+          BIDS standard.
+
+  output_dir:
+    help: The directory where the output files should be stored. If you are
+          running group level analysis, this folder should be prepopulated
+          with the results of the participant level analysis.
+
+  analysis_level:
+    help: Level of the analysis that will be performed
+    choices: *analysis_levels
+
+  --participant_label:
+    help: The label(s) of the participant(s) that should be analyzed. The label
+          corresponds to sub-<participant_label> from the BIDS spec (so it does
+          not include "sub-"). If this parameter is not provided, all subjects
+          will be analyzed. Multiple participants can be specified with a space
+          seperated list.
+    nargs: "+"
+
+  --exclude_participant_label:
+    help: The label(s) of the participant(s) that should be excluded. The label
+          corresponds to sub-<participant_label> from the BIDS spec (so it does
+          not include "sub-"). If this parameter is not provided, all subjects
+          will be analyzed. Multiple participants can be specified with a space
+          sepearated list.
+    nargs: "+"
+#-----------------------------------------------------#
+
+# Workflow specific config
+# participants_tsv: 'config/participants/hcp7T_participants.tsv'
+# participants_tsv: 'config/participants/hcptest_participants.tsv' # Test participants
 
 # Singularity containers
 singularity:
@@ -17,8 +85,6 @@ fs_license: /project/6050199/akhanf/opt/freesurfer/.license
 # Subject freesurfer directory (with surf/ and mri/ subdirectories)
 # Uses subject wildcard
 freesurfer:
-  subject: 'freesurfer/sub-{subject}'
-  root: 'freesurfer'
   tar: /project/6050199/ext-data/hcp1200/HCP_1200_T1w_Diffusion_FS/{subject}/T1w/{subject}.freesurfer.tar
 
 hcp_func:

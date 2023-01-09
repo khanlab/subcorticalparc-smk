@@ -1,13 +1,27 @@
+
+import snakebids
+from snakebids import bids 
+
 import pandas as pd
+
 from os.path import join
 
 
 configfile: "config/config.yml"
 
+inputs = snakebids.generate_inputs(
+    bids_dir=config["bids_dir"],
+    pybids_inputs=config["pybids_inputs"],
+    derivatives=config["derivatives"],
+    participant_label=config["participant_label"],
+    exclude_participant_label=config["exclude_participant_label"],
+    use_bids_inputs=True,
+)
+
 
 # Load participants.tsv and strip off 'sub-'
-df = pd.read_table(config["participants_tsv"])
-subjects = df["participant_id"].str.strip("sub-").to_list()
+# df = pd.read_table(config["participants_tsv"])
+# subjects = df["participant_id"].str.strip("sub-").to_list()
 
 # Get list of ROIs
 df_targets = pd.read_table(config["target"]["cortical"]["tsv"])
@@ -22,7 +36,7 @@ hemis = ["L", "R"]
 
 # bids-naming for subject and template (only alphanumeric characters)
 wildcard_constraints:
-    subject="[a-zA-Z0-9]+",
+    **snakebids.get_wildcard_constraints(config["pybids_inputs"]),
     template="[a-zA-Z0-9]+",
     seed="[a-zA-Z0-9]+",
     k="[0-9]+",
@@ -36,6 +50,7 @@ include: "rules/diffparc.smk"
 include: "rules/tractmap.smk"
 include: "rules/funcparc.smk"
 
+# Structural + Functional
 rule all:
     input:
         # group_tractseg=expand(
@@ -85,7 +100,7 @@ rule all:
             vox_res=config['hcp_func']['voxel_size'],
         )
 
-
+# Structural only
 rule diffparc:
     input:
         # group_tractseg=expand(
@@ -126,6 +141,7 @@ rule diffparc:
         ),
 
 
+# Functional only
 rule funcparc:
     input: 
         atlas=expand(
