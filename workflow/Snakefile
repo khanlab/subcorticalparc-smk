@@ -5,7 +5,7 @@ from snakebids import bids
 import pandas as pd
 
 from os.path import join
-
+from functools import partial
 
 configfile: "config/config.yml"
 

@@ -1,6 +1,3 @@
-from functools import partial
-
-
 H_to_hemi = dict({"L": "lh", "R": "rh"})
 
 # Directories
