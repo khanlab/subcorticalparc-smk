@@ -3,17 +3,27 @@ from functools import partial
 
 H_to_hemi = dict({"L": "lh", "R": "rh"})
 
+# Directories
+hcp_mmp_dir = str(Path(config["output_dir"]) / "hcp_mmp")
+fs_dir = str(Path(config["output_dir"]) / "freesurfer")
 
-hcp_mmp_diff = partial(
+# BIDS
+bids_hcpmmp = partial(
     bids,
-    root="results/hcp_mmp/dwi",
-    subject="{subject}",
+    root=hcp_mmp_dir,
+    datatype="surf",
     hemi="{hemi}",
+    **inputs.input_wildcards['T1w'],
+)
+
+bids_fs = partial(
+    bids,
+    root=fs_dir
+    **inputs.input_wildcards['T1w'],
 )
 
 wildcard_constraints:
     surfname="white|pial|sphere.reg",
-    volname="T1",
 
 
 # Diffparc
@@ -21,14 +31,13 @@ rule extract_from_tar:
     input:
         tar=config["freesurfer"]["tar"],
     params:
-        out_folder=config["freesurfer"]["root"],
+        out_folder=fs_dir,
         file_in_tar="{subject}/{modality}/{filename}",
     output:
-        filename=join(
-            config["freesurfer"]["subject"],
-            "{modality,surf|mri}",
-            "{filename}",
-        ),
+        filename=bids_freesurfer(
+            datatype="{modality,surf|mri}",
+            suffix="{filename},
+        )
     threads: 8
     shadow:
         "minimal"
@@ -44,12 +53,12 @@ def get_gifti_input(wildcards):
     #        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}.T1'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
     #    else:
     #        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
-    return join(
-        config["freesurfer"]["subject"],
-        "surf",
-        "{hemi}.{surfname}".format(
-            hemi=H_to_hemi[wildcards.hemi], surfname=wildcards.surfname
-        ),
+    return bids_freesurfer(
+        datatype="surf",
+        suffix="{hemi}.{surfname}".format(
+            hemi=H_to_hemi[wildcards.hemi], 
+            surfname=wildcards.surfname,
+        )
     )
 
 
@@ -57,10 +66,10 @@ rule convert_to_gifti:
     input:
         get_gifti_input,
     output:
-        hcp_mmp_diff(
+        bids_hcpmmp(
             space="fsaverage",
             suffix="{surfname}.surf.gii",
-        ),
+        )
     params:
         license=config["fs_license"],
     container:
@@ -75,19 +84,21 @@ rule convert_to_gifti:
 
 rule convert_to_nifti:
     input:
-        join(config["freesurfer"]["subject"], "mri", "{volname}.mgz"),
-    output:
-        bids(
-            root="results/hcp_mmp",
-            subject="{subject}",
-            suffix="{volname}.nii.gz",
+        bids_fs(
+            datatype="mri",
+            suffix="T1.mgz",
         ),
+    output:
+        bids_hcpmmp(
+            datatype="anat",
+            suffix="T1.nii.gz",
+        )
     params:
         license=config["fs_license"],
     container:
         config["singularity"]["freesurfer"]
     log:
-        "logs/diffparc/convert_to_nifti/sub-{subject}_{volname}.log",
+        "logs/diffparc/convert_to_nifti/sub-{subject}_T1.log",
     group:
         "diffparc_participant1"
     shell:
@@ -96,15 +107,12 @@ rule convert_to_nifti:
 
 rule get_tkr2scanner:
     input:
-        t1=bids(
-            root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
-        ),
+        rules.convert_to_nifti.output,
     output:
-        tkr2scanner=bids(
-            root="results/hcp_mmp",
-            subject="{subject}",
+        bids_hcpmmp(
+            datatype="xfm",
             suffix="tkr2scanner.xfm",
-        ),
+        )
     params:
         license=config["fs_license"],
     container:
@@ -114,15 +122,15 @@ rule get_tkr2scanner:
     group:
         "diffparc_participant1"
     shell:
-        "FS_LICENSE={params.license} mri_info {input.t1} --tkr2scanner > {output.tkr2scanner} 2> {log}"
+        "FS_LICENSE={params.license} mri_info {input} --tkr2scanner > {output} 2> {log}"
 
 
 rule apply_surf_tkr2scanner:
     input:
         surf=rules.convert_to_gifti.output,
-        tkr2scanner=rules.get_tkr2scanner.output.tkr2scanner,
+        tkr2scanner=rules.get_tkr2scanner.output,
     output:
-        surf=hcp_mmp_diff(
+        surf=bids_hcpmmp(
             space="native",
             suffix="{surfname}.surf.gii",
         ),
@@ -139,16 +147,16 @@ rule apply_surf_tkr2scanner:
 
 rule gen_midthickness:
     input:
-        white=hcp_mmp_diff(
+        white=bids_hcpmmp(
             space="{space}",
             suffix="white.surf.gii",
-        ),
-        pial=hcp_mmp_diff(
+        )
+        pial=bids_hcpmmp(
             space="{space}",
             suffix="pial.surf.gii",
-        ),
+        )
     output:
-        midthickness=hcp_mmp_diff(
+        midthickness=bids_hcpmmp(
             space="{space}",
             suffix="midthickness.surf.gii",
         ),
@@ -165,11 +173,11 @@ rule gen_midthickness:
 
 rule resample_subj_to_fsaverage_sphere:
     input:
-        surf=hcp_mmp_diff(
+        surf=bids_hcpmmp(
             space="fsaverage",
             suffix="midthickness.surf.gii",
         ),
-        current_sphere=hcp_mmp_diff(
+        current_sphere=bids_hcpmmp(
             space="fsaverage",
             suffix="sphere.reg.surf.gii",
         ),
@@ -178,7 +186,7 @@ rule resample_subj_to_fsaverage_sphere:
     params:
         method="BARYCENTRIC",
     output:
-        surf=hcp_mmp_diff(
+        surf=bids_hcpmmp(
             space="fsLR",
             den="32k",
             suffix="midthickness.surf.gii",
@@ -201,19 +209,14 @@ rule resample_labels_to_subj_sphere:
         ),
         current_sphere=lambda wildcards: "resources/standard_mesh_atlases/resample_fsaverage/"
         "fs_LR-deformed_to-fsaverage.{hemi}.sphere.32k_fs_LR.surf.gii",
-        new_sphere=hcp_mmp_diff(
-            space="fsaverage",
-            suffix="sphere.reg.surf.gii",
-        ),
         current_surf=rules.resample_subj_to_fsaverage_sphere.output.surf,
-        new_surf=hcp_mmp_diff(
-            space="fsaverage",
-            suffix="midthickness.surf.gii",
-        ),
+        new_sphere=rules.resample_subj_to_fsaverage_sphere.input.current_sphere,
+        new_surf=rules.resample_subj_to_fsaverage_sphere.input.current_surf,
     params:
         method="ADAP_BARY_AREA",
     output:
-        label=hcp_mmp_diff(
+        label=bids_hcpmmp(
+            datatype="labels",
             label="hcpmmp",
             space="native",
             suffix="dseg.label.gii",
@@ -234,23 +237,22 @@ rule resample_labels_to_subj_sphere:
 rule map_labels_to_volume_ribbon:
     input:
         label=rules.resample_labels_to_subj_sphere.output.label,
-        surf=hcp_mmp_diff(
+        vol_ref=rules.convert_to_nifti.output,
+        surf=bids_hcpmmp(
             space="native",
             suffix="midthickness.surf.gii",
         ),
-        vol_ref=bids(
-            root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
-        ),
-        white_surf=hcp_mmp_diff(
+        white_surf=bids_hcpmmp(
             space="native",
             suffix="white.surf.gii",
         ),
-        pial_surf=hcp_mmp_diff(
+        pial_surf=bids_hcpmmp(
             space="native",
             suffix="pial.surf.gii",
         ),
     output:
-        label_vol=hcp_mmp_diff(
+        label_vol=bids_hcpmmp(
+            datatype="labels",
             label="hcpmmp",
             space="native",
             suffix="dseg.nii.gz",
@@ -272,25 +274,15 @@ rule map_labels_to_volume_ribbon:
 rule map_labels_to_volume_wmboundary:
     input:
         label=rules.resample_labels_to_subj_sphere.output.label,
-        surf=hcp_mmp_diff(
-            suffix="white.surf.gii",
-            space="native",
-        ),
-        vol_ref=bids(
-            root="results/hcp_mmp", subject="{subject}", suffix="T1.nii.gz"
-        ),
-        white_surf=hcp_mmp_diff(
-            suffix="white.surf.gii",
-            space="native",
-        ),
-        pial_surf=hcp_mmp_diff(
-            suffix="pial.surf.gii",
-            space="native",
-        ),
+        surf=rules.map_labels_to_volume_ribbon.output.white_surf,
+        vol_ref=rules.convert_to_nifti.output,
+        white_surf=rules.map_labels_to_volume_ribbon.output.white_surf,
+        pial_surf=rules.map_labels_to_volume_ribbon.output.pial_surf,
     params:
         nearest_vertex="{wmbdy}",
     output:
-        label_vol=hcp_mmp_diff(
+        label_vol=bids_hcpmmp(
+            datatype="labels",
             space="native",
             label="hcpmmp",
             desc="wmbound{wmbdy}",
@@ -307,6 +299,7 @@ rule map_labels_to_volume_wmboundary:
         "wb_command -label-to-volume-mapping {input.label} {input.surf} {input.vol_ref} {output.label_vol}"
         " -nearest-vertex {params.nearest_vertex} &> {log}"
 
+# TODO
 # Funcparc
 rule extract_from_zip:
     input:
