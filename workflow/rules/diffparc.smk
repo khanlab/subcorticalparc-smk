@@ -9,21 +9,21 @@ bids_hcpmmp = partial(
     label="hcpmmp",
     space="native",
     suffix="dseg.nii.gz",
-    **inputs.input_wildcards['T1w'],
+    **inputs["T1w"].input_wildcards,
 )
 
 bids_subj_diffparc = partial(
     bids,
     root=diffparc_dir.
     space="individual",
-    **inputs.input_wildcards['T1w'],
+    **inputs["T1w"].input_wildcards,
 )
 
 bids_gen_diffparc = partial(
     bids,
     root=diffparc_dir,
     label="{seed}",
-    **inputs.input_wildcards['T1w'],
+    **inputs["T1w"].input_wildcards,
 )
 
 bids_tpl_diffparc = partial(
@@ -212,7 +212,7 @@ rule split_targets:
             bids(
                 root=diffparc_dir,
                 suffix="targets",
-                **inputs.input_widlcards["T1w"],
+                **inputs["T1w"].input_wildcards,
             )
         ),
     container:
@@ -232,7 +232,7 @@ rule gen_targets_txt:
         target_seg_dir=bids(
             root=diffparc_dir,
             suffix="targets",
-            **inputs.input_widlcards["T1w"],
+            **inputs["T1w"].input_wildcards,
         )
     params:
         target_seg=lambda wildcards, input: expand(

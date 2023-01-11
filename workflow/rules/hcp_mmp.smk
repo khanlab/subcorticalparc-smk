@@ -10,13 +10,13 @@ bids_hcpmmp = partial(
     root=hcp_mmp_dir,
     datatype="surf",
     hemi="{hemi}",
-    **inputs.input_wildcards['T1w'],
+    **inputs['T1w'].input_wildcards,
 )
 
 bids_fs = partial(
     bids,
     root=fs_dir
-    **inputs.input_wildcards['T1w'],
+    **inputs['T1w'].input_wildcards,
 )
 
 wildcard_constraints:
