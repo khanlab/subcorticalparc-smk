@@ -34,10 +34,10 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poe.tasks]
-isort = "isort ./*.py"
-black = "black . -l 79"
-flake8 = "flake8 dbsc --ignore=E501"
-snakefmt = "snakefmt ."
+isort = "isort ./subcorticalparc_smk/*.py"
+black = "black ./subcorticalparc_smk -l 79"
+flake8 = "flake8 subcorticalparc_smk --ignore=E501"
+snakefmt = "snakefmt ./subcorticalparc_smk"
 quality = ["isort", "black", "flake8", "snakefmt"]
 
 [tool.isort]

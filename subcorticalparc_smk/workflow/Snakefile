@@ -44,6 +44,8 @@ wildcard_constraints:
 
 template = config["template"]
 
+tractmap_dir = str(Path(config["output_dir"]) / "tractmap")
+
 include: "rules/common.smk"
 include: "rules/hcp_mmp.smk"
 include: "rules/diffparc.smk"
@@ -72,7 +74,7 @@ rule all:
         # Input below would result in same as --omit-from resample_clus_seed
         cluster_k=expand(
             bids(
-                root="results/tractmap",
+                root=tractmap_dir
                 subject="{subject}",
                 space="individual",
                 hemi="{hemi}",
@@ -83,7 +85,7 @@ rule all:
                 desc="sorted",
                 suffix="dseg.nii.gz",
             ),
-            subject=subjects,
+            subject=inputs["T1w"].input_lists["subject"],
             template=template,
             seed=seeds,
             hemi=hemis,
@@ -122,7 +124,7 @@ rule diffparc:
         # Input below would result in same as --omit-from resample_clus_seed
         cluster_k=expand(
             bids(
-                root="results/tractmap",
+                root=tractmap_dir,
                 subject="{subject}",
                 space="individual",
                 hemi="{hemi}",
@@ -133,7 +135,7 @@ rule diffparc:
                 desc="sorted",
                 suffix="dseg.nii.gz",
             ),
-            subject=subjects,
+            subject=inputs["T1w"].input_lists["subject"],
             template=template,
             seed=seeds,
             hemi=hemis,
