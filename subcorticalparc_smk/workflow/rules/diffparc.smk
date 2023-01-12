@@ -2,10 +2,14 @@
 hcp_mmp_dir = str(Path(config["output_dir"]) / "hcp_mmp")
 diffparc_dir = str(Path(config["output_dir"]) / "diffparc")
 
+Path(hcp_mmp_dir).mkdir(parents=True, exist_ok=True)
+Path(diffparc_dir).mkdir(parents=True, exist_ok=True)
+
 # BIDS partials
 bids_hcpmmp = partial(
     bids,
-    root=diffparc_dir,
+    root=hcp_mmp_dir,
+    datatype="labels",
     label="hcpmmp",
     space="native",
     suffix="dseg.nii.gz",
@@ -14,7 +18,7 @@ bids_hcpmmp = partial(
 
 bids_subj_diffparc = partial(
     bids,
-    root=diffparc_dir.
+    root=diffparc_dir,
     space="individual",
     **inputs["T1w"].input_wildcards,
 )
@@ -242,7 +246,7 @@ rule gen_targets_txt:
             target=targets,
         ),
     output:
-        target_txt=join(diffparc_dir, "sub-{subject}/targets.txt",
+        target_txt=join(diffparc_dir, "sub-{subject}/targets.txt"),
     log:
         "logs/diffparc/get_targets_txt/sub-{subject}.log",
     group:
@@ -403,7 +407,7 @@ rule gather_connmap_group:
     input:
         connmap_npz=expand(
             rules.save_connmap_template_npz.output.connmap_npz,
-            subject=subjects,
+            subject=inputs["T1w"].input_lists["subject"],
             allow_missing=True,
         ),
     output:
@@ -460,7 +464,7 @@ rule sort_cluster_label:
             k="{k}",
             suffix="dseg.nii.gz",
         ),
-        shell_script="workflow/scripts/diffparc/sort_labels_by_ap.sh",
+        shell_script= Path(workflow.basedir).parent / "workflow/scripts/diffparc/sort_labels_by_ap.sh",
     output:
         seg=bids_tpl_diffparc(
             from_="group",

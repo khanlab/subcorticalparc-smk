@@ -85,8 +85,8 @@ def bids_template(
     # replace underscores in keys (needed to that users can use reserved keywords by appending a _)
     entities = {k.replace("_", ""): v for k, v in entities.items()}
 
-    if isinstance(subject, str) and isinstance(template, str):
-        raise ("template and subject cannot be used together")
+    # if isinstance(subject, str) and isinstance(template, str):
+    #     raise ("template and subject cannot be used together")
 
     # strict ordering of bids entities is specified here:
     order = OrderedDict(

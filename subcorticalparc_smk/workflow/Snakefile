@@ -6,6 +6,7 @@ import pandas as pd
 
 from os.path import join
 from functools import partial
+from pathlib import Path
 
 configfile: "config/config.yml"
 
@@ -24,7 +25,12 @@ inputs = snakebids.generate_inputs(
 # subjects = df["participant_id"].str.strip("sub-").to_list()
 
 # Get list of ROIs
-df_targets = pd.read_table(config["target"]["cortical"]["tsv"])
+df_targets = pd.read_table(
+    str(
+        Path(workflow.basedir).parent 
+        / Path(config["target"]["cortical"]["tsv"])
+    )
+)
 targets = df_targets.name.to_list()
 
 # Get seeds, as structure keys
@@ -50,7 +56,7 @@ include: "rules/common.smk"
 include: "rules/hcp_mmp.smk"
 include: "rules/diffparc.smk"
 include: "rules/tractmap.smk"
-include: "rules/funcparc.smk"
+# include: "rules/funcparc.smk"
 
 # Structural + Functional
 rule all:
@@ -74,7 +80,7 @@ rule all:
         # Input below would result in same as --omit-from resample_clus_seed
         cluster_k=expand(
             bids(
-                root=tractmap_dir
+                root=tractmap_dir,
                 subject="{subject}",
                 space="individual",
                 hemi="{hemi}",

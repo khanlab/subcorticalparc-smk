@@ -26,7 +26,6 @@ rule transform_clus_to_subj:
         cluster_k=expand(
             bids(
                 root=tractmap_dir,
-                subject="{subject}",
                 space="individual",
                 hemi="{hemi}",
                 label="{seed}",
@@ -229,7 +228,7 @@ rule track_from_clusters:
 # space-T1w, res-?
 rule combine_tractmaps:
     input:
-        tractmaps=expand(
+        tractmaps=lambda wildcards: expand(
             bids(
                 root=tractmap_dir,
                 space="individual",
@@ -248,7 +247,7 @@ rule combine_tractmaps:
         ),
     output:
         tractmaps_4d=bids(
-            root=tractmap_dir,,
+            root=tractmap_dir,
             space="individual",
             hemi="{hemi}",
             label="{seed}",
@@ -321,7 +320,7 @@ rule transform_tractmaps_to_template:
 # space-{template}, tractography 4d?
 rule combine_tractmaps_warped:
     input:
-        tractmaps=expand(
+        tractmaps=lambda wildcards: expand(
             bids(
                 root=tractmap_dir,
                 hemi="{hemi}",
@@ -367,7 +366,7 @@ rule avg_tractmaps_template:
     input:
         tractmaps_4d=expand(
             rules.combine_tractmaps_warped.output.tractmaps_4d,
-            subject=subjects,
+            subject=inputs["T1w"].input_lists["subject"],
             allow_missing=True,
         ),
     output:

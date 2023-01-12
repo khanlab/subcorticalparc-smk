@@ -1,5 +1,5 @@
-bids_dir = "/path/to/bids/dir"
-output_dir = "/path/to/output/dir" # don't use "."
+bids_dir: "/path/to/bids/dir"
+output_dir: "/path/to/output/dir" # don't use "."
 
 snakebids_dir: "." # DO NOT MODIFY - used to refer to files need by workflow running with CLI
 
@@ -33,6 +33,10 @@ pybids_inputs:
       datatype: "anat"
     wildcards:
       - subject
+
+# Configuration for the command-line parameters to make available
+# passed on the argparse add_argument()
+parse_args:
 
 #--- core BIDS-app options --- (do not modify below) ---#
   bids_dir:
@@ -139,7 +143,7 @@ prob_seg_threshold: 0.5
 
 # Seed segmentations
 seed:
-  dir: /scratch/tkai/zona/misc/zona_parcellations/MNI152NLin6Asym
+  dir: /project/6050199/tkai/data/zona/misc/zona_parcellations/MNI152NLin6Asym
   nii: sub-SNSX32NLin2020Asym_space-MNI152NLin6Asym_hemi-{hemi}_desc-{seed}_prob.nii.gz
   structures:
     ZIR: ZIR

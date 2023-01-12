@@ -9,13 +9,12 @@ bids_hcpmmp = partial(
     bids,
     root=hcp_mmp_dir,
     datatype="surf",
-    hemi="{hemi}",
     **inputs['T1w'].input_wildcards,
 )
 
 bids_fs = partial(
     bids,
-    root=fs_dir
+    root=fs_dir,
     **inputs['T1w'].input_wildcards,
 )
 
@@ -31,9 +30,9 @@ rule extract_from_tar:
         out_folder=fs_dir,
         file_in_tar="{subject}/{modality}/{filename}",
     output:
-        filename=bids_freesurfer(
+        filename=bids_fs(
             datatype="{modality,surf|mri}",
-            suffix="{filename},
+            suffix="{filename}",
         )
     threads: 8
     shadow:
@@ -50,7 +49,7 @@ def get_gifti_input(wildcards):
     #        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}.T1'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
     #    else:
     #        return join(config['in_freesurfer'],'surf','{hemi}.{surfname}'.format(hemi=H_to_hemi[wildcards.hemi],surfname=wildcards.surfname))
-    return bids_freesurfer(
+    return bids_fs(
         datatype="surf",
         suffix="{hemi}.{surfname}".format(
             hemi=H_to_hemi[wildcards.hemi], 
@@ -65,6 +64,7 @@ rule convert_to_gifti:
     output:
         bids_hcpmmp(
             space="fsaverage",
+            hemi="{hemi}",
             suffix="{surfname}.surf.gii",
         )
     params:
@@ -129,6 +129,7 @@ rule apply_surf_tkr2scanner:
     output:
         surf=bids_hcpmmp(
             space="native",
+            hemi="{hemi}",
             suffix="{surfname}.surf.gii",
         ),
     threads: 8
@@ -146,15 +147,18 @@ rule gen_midthickness:
     input:
         white=bids_hcpmmp(
             space="{space}",
+            hemi="{hemi}",
             suffix="white.surf.gii",
-        )
+        ),
         pial=bids_hcpmmp(
             space="{space}",
+            hemi="{hemi}",
             suffix="pial.surf.gii",
-        )
+        ),
     output:
         midthickness=bids_hcpmmp(
             space="{space}",
+            hemi="{hemi}",
             suffix="midthickness.surf.gii",
         ),
     container:
@@ -172,19 +176,22 @@ rule resample_subj_to_fsaverage_sphere:
     input:
         surf=bids_hcpmmp(
             space="fsaverage",
+            hemi="{hemi}",
             suffix="midthickness.surf.gii",
         ),
         current_sphere=bids_hcpmmp(
             space="fsaverage",
+            hemi="{hemi}",
             suffix="sphere.reg.surf.gii",
         ),
-        new_sphere="resources/standard_mesh_atlases/resample_fsaverage/"
+        new_sphere=Path(workflow.basedir).parent / "resources/standard_mesh_atlases/resample_fsaverage/"
         "fs_LR-deformed_to-fsaverage.{hemi}.sphere.32k_fs_LR.surf.gii",
     params:
         method="BARYCENTRIC",
     output:
         surf=bids_hcpmmp(
             space="fsLR",
+            hemi="{hemi}",
             den="32k",
             suffix="midthickness.surf.gii",
         ),
@@ -201,19 +208,20 @@ rule resample_subj_to_fsaverage_sphere:
 
 rule resample_labels_to_subj_sphere:
     input:
-        label=lambda wildcards: "resources/standard_mesh_atlases/{hemi}.hcp-mmp.32k_fs_LR.label.gii".format(
+        label=lambda wildcards: Path(workflow.basedir).parent / "resources/standard_mesh_atlases/{hemi}.hcp-mmp.32k_fs_LR.label.gii".format(
             hemi=H_to_hemi[wildcards.hemi]
         ),
-        current_sphere=lambda wildcards: "resources/standard_mesh_atlases/resample_fsaverage/"
+        current_sphere=lambda wildcards: Path(workflow.basedir).parent / "resources/standard_mesh_atlases/resample_fsaverage/"
         "fs_LR-deformed_to-fsaverage.{hemi}.sphere.32k_fs_LR.surf.gii",
         current_surf=rules.resample_subj_to_fsaverage_sphere.output.surf,
         new_sphere=rules.resample_subj_to_fsaverage_sphere.input.current_sphere,
-        new_surf=rules.resample_subj_to_fsaverage_sphere.input.current_surf,
+        new_surf=rules.resample_subj_to_fsaverage_sphere.input.surf,
     params:
         method="ADAP_BARY_AREA",
     output:
         label=bids_hcpmmp(
             datatype="labels",
+            hemi="{hemi}",
             label="hcpmmp",
             space="native",
             suffix="dseg.label.gii",
@@ -237,20 +245,24 @@ rule map_labels_to_volume_ribbon:
         vol_ref=rules.convert_to_nifti.output,
         surf=bids_hcpmmp(
             space="native",
+            hemi="{hemi}",
             suffix="midthickness.surf.gii",
         ),
         white_surf=bids_hcpmmp(
             space="native",
+            hemi="{hemi}",
             suffix="white.surf.gii",
         ),
         pial_surf=bids_hcpmmp(
             space="native",
+            hemi="{hemi}",
             suffix="pial.surf.gii",
         ),
     output:
         label_vol=bids_hcpmmp(
             datatype="labels",
             label="hcpmmp",
+            hemi="{hemi}",
             space="native",
             suffix="dseg.nii.gz",
         ),
@@ -271,16 +283,17 @@ rule map_labels_to_volume_ribbon:
 rule map_labels_to_volume_wmboundary:
     input:
         label=rules.resample_labels_to_subj_sphere.output.label,
-        surf=rules.map_labels_to_volume_ribbon.output.white_surf,
+        surf=rules.map_labels_to_volume_ribbon.input.white_surf,
         vol_ref=rules.convert_to_nifti.output,
-        white_surf=rules.map_labels_to_volume_ribbon.output.white_surf,
-        pial_surf=rules.map_labels_to_volume_ribbon.output.pial_surf,
+        white_surf=rules.map_labels_to_volume_ribbon.input.white_surf,
+        pial_surf=rules.map_labels_to_volume_ribbon.input.pial_surf,
     params:
         nearest_vertex="{wmbdy}",
     output:
         label_vol=bids_hcpmmp(
             datatype="labels",
             space="native",
+            hemi="{hemi}",
             label="hcpmmp",
             desc="wmbound{wmbdy}",
             suffix="dseg.nii.gz",
