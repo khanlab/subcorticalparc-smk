@@ -2,6 +2,7 @@ H_to_hemi = dict({"L": "lh", "R": "rh"})
 
 # Directories
 hcp_mmp_dir = str(Path(config["output_dir"]) / "hcp_mmp")
+hcp_func_dir = str(Path(config["output_dir"]) / "hcp_func")
 fs_dir = str(Path(config["output_dir"]) / "freesurfer")
 
 # BIDS
@@ -16,6 +17,17 @@ bids_fs = partial(
     bids,
     root=fs_dir,
     **inputs['T1w'].input_wildcards,
+)
+
+bids_hcpfunc = partial(
+    bids,
+    root=hcp_func_dir,
+    **inputs['T1w'].input_wildcards,
+)
+
+bids_hcpfunc_group = partial(
+    bids,
+    root=hcp_func_dir,
 )
 
 wildcard_constraints:
@@ -309,7 +321,6 @@ rule map_labels_to_volume_wmboundary:
         "wb_command -label-to-volume-mapping {input.label} {input.surf} {input.vol_ref} {output.label_vol}"
         " -nearest-vertex {params.nearest_vertex} &> {log}"
 
-# TODO
 # Funcparc
 rule extract_from_zip:
     input:
@@ -323,24 +334,42 @@ rule extract_from_zip:
             "{filename}",
             filename=config['hcp_func']['icafix_package_dict'].keys(),    
         ),
+        out_dir=directory(
+                bids_hcpfunc(datatype="data")
+        ),
     output:
         files=expand(
-            "results/hcp_func/data/{filename}",
+            bids_hcpfunc(
+                datatype="data",
+                suffix="{filename}",
+            )
             filename=config['hcp_func']['icafix_package_dict'].keys(),
+            allow_missing=True,
         )
     group: "funcparc_participant1"
     run:
+        out_dir = params.out_dir
         for pkg, f in zip(input.packages, params.files_in_pkg):
-            shell("unzip -n {pkg} {f} -d results/hcp_func/data")
+            shell("unzip -n {pkg} {f} -d {out_dir}")
 
 
 rule merge_roi:
     '''Create custom subcortical atlas, labelling seed as 16 (brainstem) for wb'''
     input:
-        atlas = "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_workbench.nii.gz",
-        roi = "resources/funcparc/sub-SNSX32NLin2020Asym_space-MNI152NLin6Asym_hemi-LR_desc-ZIR_res-1p6mm_mask.nii.gz",
+        atlas = join(
+            workflow.basedir, 
+            "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_workbench.nii.gz"
+        ),
+        roi = join(
+            workflow.basedir,
+            "resources/funcparc/sub-SNSX32NLin2020Asym_space-MNI152NLin6Asym_hemi-LR_desc-ZIR_res-1p6mm_mask.nii.gz",
+        ),
     output:
-        out_fpath = "results/hcp_func/group/atlas/seed-{seed}_BigBrain{vox_res}.nii.gz",
+        out_fpath = bids_hcpfunc_group(
+            datatype="group/atlas",
+            label="{seed}",
+            suffix="BigBrain{vox_res}.nii.gz",
+        )
     container: 
         config["singularity"]["pythondeps"]
     group: 
@@ -353,12 +382,36 @@ rule create_atlas:
     '''Combine ZIR and BigBrain subcortical labels'''
     input:
         atlas = rules.merge_roi.output.out_fpath,
-        labels = "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_labels.txt",
-        lh_mmp = "resources/standard_mesh_atlases/lh.hcp-mmp.59k_fs_LR.label.gii",
-        rh_mmp = "resources/standard_mesh_atlases/rh.hcp-mmp.59k_fs_LR.label.gii",
+        labels = join(
+            workflow.basedir,
+            "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_labels.txt",
+        ),
+        lh_mmp = join(
+            workflow.basedir,
+            "resources/standard_mesh_atlases/lh.hcp-mmp.59k_fs_LR.label.gii",
+        ),
+        rh_mmp = join(
+            workflow.basedir,
+            "resources/standard_mesh_atlases/rh.hcp-mmp.59k_fs_LR.label.gii",
+        ),
     output:
-        nifti = 'results/hcp_func/group/atlas/seed-{seed}_HCP_MMP_BigBrain{vox_res}.nii.gz',
-        cifti = 'results/hcp_func/group/atlas/seed-{seed}_HCP_MMP_BigBrain{vox_res}.dlabel.nii',
+    out_fpath = bids_hcpfunc_group(
+            datatype="group/atlas",
+            label="{seed}",
+            suffix="BigBrain{vox_res}.nii.gz",
+        ),
+        nifti = bids_hcpfunc_group(
+            datatype="group/atalas",
+            label="{seed}",
+            desc="HCPMMP",
+            suffix="BigBrain{vox_res}.nii.gz",
+        ),
+        cifti = bids_hcpfunc_group(
+            datatype="group/atalas",
+            label="{seed}",
+            desc="HCPMMP",
+            suffix="BigBrain{vox_res}.dlabel.nii,
+        ),
     container: config['singularity']['connectome_workbench']
     group:
         "funcparc_group1"
