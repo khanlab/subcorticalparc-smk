@@ -342,7 +342,7 @@ rule extract_from_zip:
             bids_hcpfunc(
                 datatype="data",
                 suffix="{filename}",
-            )
+            ),
             filename=config['hcp_func']['icafix_package_dict'].keys(),
             allow_missing=True,
         )
@@ -356,14 +356,8 @@ rule extract_from_zip:
 rule merge_roi:
     '''Create custom subcortical atlas, labelling seed as 16 (brainstem) for wb'''
     input:
-        atlas = join(
-            workflow.basedir, 
-            "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_workbench.nii.gz"
-        ),
-        roi = join(
-            workflow.basedir,
-            "resources/funcparc/sub-SNSX32NLin2020Asym_space-MNI152NLin6Asym_hemi-LR_desc-ZIR_res-1p6mm_mask.nii.gz",
-        ),
+        atlas = Path(workflow.basedir).parent / "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_workbench.nii.gz",
+        roi = Path(workflow.basedir).parent / "resources/funcparc/sub-SNSX32NLin2020Asym_space-MNI152NLin6Asym_hemi-LR_desc-ZIR_res-1p6mm_mask.nii.gz",
     output:
         out_fpath = bids_hcpfunc_group(
             datatype="group/atlas",
@@ -382,35 +376,21 @@ rule create_atlas:
     '''Combine ZIR and BigBrain subcortical labels'''
     input:
         atlas = rules.merge_roi.output.out_fpath,
-        labels = join(
-            workflow.basedir,
-            "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_labels.txt",
-        ),
-        lh_mmp = join(
-            workflow.basedir,
-            "resources/standard_mesh_atlases/lh.hcp-mmp.59k_fs_LR.label.gii",
-        ),
-        rh_mmp = join(
-            workflow.basedir,
-            "resources/standard_mesh_atlases/rh.hcp-mmp.59k_fs_LR.label.gii",
-        ),
+        labels = Path(workflow.basedir).parent / "resources/funcparc/sub-MNI152NLin6Asym_desc-allFSstyle_labels.txt",
+        lh_mmp = Path(workflow.basedir).parent / "resources/standard_mesh_atlases/lh.hcp-mmp.59k_fs_LR.label.gii",
+        rh_mmp = Path(workflow.basedir).parent / "resources/standard_mesh_atlases/rh.hcp-mmp.59k_fs_LR.label.gii",
     output:
-    out_fpath = bids_hcpfunc_group(
-            datatype="group/atlas",
-            label="{seed}",
-            suffix="BigBrain{vox_res}.nii.gz",
-        ),
         nifti = bids_hcpfunc_group(
-            datatype="group/atalas",
+            datatype="group/atlas",
             label="{seed}",
             desc="HCPMMP",
             suffix="BigBrain{vox_res}.nii.gz",
         ),
         cifti = bids_hcpfunc_group(
-            datatype="group/atalas",
+            datatype="group/atlas",
             label="{seed}",
             desc="HCPMMP",
-            suffix="BigBrain{vox_res}.dlabel.nii,
+            suffix="BigBrain{vox_res}.dlabel.nii",
         ),
     container: config['singularity']['connectome_workbench']
     group:

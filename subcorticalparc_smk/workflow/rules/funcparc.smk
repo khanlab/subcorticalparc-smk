@@ -19,7 +19,7 @@ rule prepare_subcortical:
         vol=bids_hcpfunc(
             datatype="data",
             suffix="{subject}/MNINonLinear/Results/{run}/{run}_hp2000_clean.nii.gz"
-        )
+        ),
         rois=rules.create_atlas.output.nifti,
     params:
         sigma=config["hcp_func"]["sigma"],
@@ -62,7 +62,7 @@ rule cifti_separate:
             den="59k",
             desc="fs_LR",
             suffix="func.gii",
-        )
+        ),
         rh=bids_hcpfunc(
             datatype="func",
             run="{run}",
@@ -70,7 +70,7 @@ rule cifti_separate:
             den="59k",
             desc="fs_LR",
             suffix="func.gii",
-        )
+        ),
     container:
         config["singularity"]["connectome_workbench"]
     group:
@@ -139,10 +139,7 @@ rule clean_dtseries:
         dtseries=rules.create_dtseries.output.dtseries,
         confounds=rules.extract_confounds.output.confounds,
     params:
-        cleaning=join(
-            workflow.basedir,
-            config["ciftify-clean"]["hcp"]
-        ),  #if hcp in out else config['ciftify-clean']['general']
+        cleaning= Path(workflow.basedir).parent / config["ciftify-clean"]["hcp"] #if hcp in out else config['ciftify-clean']['general']
     output:
         cleaned_dtseries=bids_hcpfunc(
             datatype="func",
@@ -151,7 +148,7 @@ rule clean_dtseries:
             den="59k",
             space="fsLR",
             desc="cleaned",
-            suffix="dtseries.nii",
+            suffix="{vox_res}.dtseries.nii",
         )
     resources:
         mem_mb=12000,
@@ -266,7 +263,7 @@ rule combine_correlation:
     input:
         correlation=expand(
             rules.compute_correlation.output.correlation,
-            subject=df["participant_id"].str.strip("sub-").to_list(),
+            subject=inputs["T1w"].input_lists["subject"],
             allow_missing=True,
         ),
     output:
@@ -275,7 +272,7 @@ rule combine_correlation:
             label="{seed}",
             desc="correlationMatrix",
             suffix="{vox_res}.npz",
-    )
+        )
     group:
         "funcparc_group2"
     script:
