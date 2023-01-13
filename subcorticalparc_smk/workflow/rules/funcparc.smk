@@ -1,14 +1,39 @@
+# Directories
+hcp_func_dir = str(Path(config["output_dir"]) / "hcp_func")
+
+# BIDS
+bids_hcpfunc = partial(
+    bids,
+    root=hcp_func_dir,
+    **inputs['T1w'].input_wildcards,
+)
+
+bids_hcpfunc_group = partial(
+    bids,
+    root=hcp_func_dir,
+)
+
 rule prepare_subcortical:
     """Prep subcortical rs-fMRI as done by HCP"""
     input:
-        vol="results/hcp_func/data/{subject}/MNINonLinear/Results/{run}/{run}_hp2000_clean.nii.gz",
+        vol=bids_hcpfunc(
+            datatype="data",
+            suffix="{subject}/MNINonLinear/Results/{run}/{run}_hp2000_clean.nii.gz"
+        )
         rois=rules.create_atlas.output.nifti,
     params:
         sigma=config["hcp_func"]["sigma"],
-        tmp="results/hcp_func/sub-{subject}/tmp",
-        command="workflow/scripts/funcparc/prep_subcortical.sh",
+        tmp=directory(
+            bids_hcpfunc(datatype="tmp")
+        ),
+        command="../scripts/funcparc/prep_subcortical.sh",
     output:
-        out="results/hcp_func/sub-{subject}/fmri/{run}_AtlasSubcortical{vox_res}_seed-{seed}.nii.gz",
+        out=bids_hcpfunc(
+            datatype="func",
+            run="{run}",
+            label="{seed}",
+            suffix="AtlasSubcortical{vox_res}.nii.gz",
+        )
     resources:
         mem_mb=8000,
         time=30,
@@ -25,10 +50,27 @@ rule prepare_subcortical:
 rule cifti_separate:
     """Separate cortical timeseries data from CIFTI timeseries provided by HCP"""
     input:
-        dtseries="results/hcp_func/data/{subject}/MNINonLinear/Results/{run}/{run}_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii",
+        dtseries=bids_hcpfunc(
+            datatype="data",
+            suffix="{subject}/MNINonLinear/Results/{run}/{run}_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii"
+        ),
     output:
-        lh="results/hcp_func/sub-{subject}/fmri/{run}.L.59k_fs_LR.func.gii",
-        rh="results/hcp_func/sub-{subject}/fmri/{run}.R.59k_fs_LR.func.gii",
+        lh=bids_hcpfunc(
+            datatype="func",
+            run="{run}",
+            hemi="L",
+            den="59k",
+            desc="fs_LR",
+            suffix="func.gii",
+        )
+        rh=bids_hcpfunc(
+            datatype="func",
+            run="{run}",
+            hemi="R",
+            den="59k",
+            desc="fs_LR",
+            suffix="func.gii",
+        )
     container:
         config["singularity"]["connectome_workbench"]
     group:
@@ -45,7 +87,14 @@ rule create_dtseries:
         lh=rules.cifti_separate.output.lh,
         rh=rules.cifti_separate.output.rh,
     output:
-        dtseries="results/hcp_func/sub-{subject}/fmri/{run}_seed-{seed}_{vox_res}.59k_fs_LR.dtseries.nii",
+        dtseries=bids_hcpfunc(
+            datatype="func",
+            run="{run}",
+            label="{seed}",
+            den="59k",
+            space="fs_LR",
+            suffix="{vox_res}.dtseries.nii",
+        )
     container:
         config["singularity"]["connectome_workbench"]
     group:
@@ -58,10 +107,22 @@ rule extract_confounds:
     """Extract cofounds for cleaning rs-fMRI data"""
     input:
         vol=rules.prepare_subcortical.input.vol,
-        rois="results/hcp_func/data/{subject}/MNINonLinear/ROIs/Atlas_wmparc.1.60.nii.gz",
-        movreg="results/hcp_func/data/{subject}/MNINonLinear/Results/{run}/Movement_Regressors_dt.txt",
+        rois=bids_hcpfunc(
+            datatype="data",
+            suffix="{subject}/MNINonLinear/ROIs/Atlas_wmparc.1.60.nii.gz",
+        ),
+        movreg=bids_hcpfunc(
+            datatype="data",
+            suffix="{subject}/MNINonLinear/Results/{run}/Movement_Regressors_dt.txt",
+        ),
     output:
-        confounds="results/hcp_func/sub-{subject}/fmri/{run}_seed-{seed}_{vox_res}_confounds.tsv",
+        confounds=bids_hcpfunc(
+            datatype="func",
+            run="{run}",
+            label="{seed}",
+            desc="confounds",
+            suffix="{vox_res}.tsv"
+        ),
     log:
         "logs/sub-{subject}/extract_confounds_{run}_{vox_res}_seed-{seed}.log",
     container:
@@ -78,9 +139,20 @@ rule clean_dtseries:
         dtseries=rules.create_dtseries.output.dtseries,
         confounds=rules.extract_confounds.output.confounds,
     params:
-        cleaning=config["ciftify-clean"]["hcp"],  #if hcp in out else config['ciftify-clean']['general']
+        cleaning=join(
+            workflow.basedir,
+            config["ciftify-clean"]["hcp"]
+        ),  #if hcp in out else config['ciftify-clean']['general']
     output:
-        cleaned_dtseries="results/hcp_func/sub-{subject}/fmri/{run}_cleaned.seed-{seed}_{vox_res}_59k_fs_LR.dtseries.nii",
+        cleaned_dtseries=bids_hcpfunc(
+            datatype="func",
+            run="{run}",
+            label="{seed}",
+            den="59k",
+            space="fsLR",
+            desc="cleaned",
+            suffix="dtseries.nii",
+        )
     resources:
         mem_mb=12000,
     log:
@@ -102,7 +174,15 @@ rule concat_clean_runs:
             allow_missing=True,
         ),
     output:
-        concat_dtseries="results/hcp_func/sub-{subject}/fmri/rfMRI_REST_7T_cleaned.seed-{seed}_{vox_res}_59k_fs_LR.dtseries.nii",
+        concat_dtseries=bids_hcpfunc(
+            datatype="func",
+            desc="cleaned",
+            task="rest",
+            label="{seed}",
+            den="59k",
+            space="fsLR",
+            suffix="{vox_res}.dtseries.nii"
+        ),
     group:
         "funcparc_participant2"
     container:
@@ -117,10 +197,18 @@ rule wishart_postfilter:
     input:
         concat_dtseries=rules.concat_clean_runs.output.concat_dtseries,
     params:
-        command="workflow/scripts/funcparc/wishart_filter.sh",
-        script="workflow/scripts/funcparc/wishart_filter.m",
+        command="../scripts/funcparc/wishart_filter.sh",
+        script="../scripts/funcparc/wishart_filter.m",
     output:
-        cleaned="results/hcp_func/sub-{subject}/fmri/rfMRI_REST_7T_cleaned+.seed-{seed}_{vox_res}_59k_fs_LR.dtseries.nii",
+        cleaned=bids_hcpfunc(
+            datatype="func",
+            desc="cleaned+",
+            task="rest",
+            label="{seed}",
+            den="59k",
+            space="fsLR",
+            suffix="{vox_res}.dtseries.nii",
+        ),
     group:
         "funcparc_participant2"
     shell:
@@ -133,7 +221,15 @@ rule parcellate_tseries:
         dtseries=rules.wishart_postfilter.output.cleaned,
         rois=rules.create_atlas.output.cifti,
     output:
-        ptseries="results/hcp_func/sub-{subject}/fmri/rfMRI_REST_7T_cleaned+.seed-{seed}_{vox_res}_59k_fs_LR.ptseries.nii",
+        ptseries=bids_hcpfunc(
+            datatype="func",
+            desc="cleaned+",
+            task="rest",
+            label="{seed}",
+            den="59k",
+            space="fsLR",
+            suffix="{vox_res}.ptseries.nii",
+        ),
     resources:
         mem_mb=12000,
     group:
@@ -153,7 +249,12 @@ rule compute_correlation:
     params:
         seed=config["seed"]["structures"]["ZIR"],
     output:
-        correlation="results/hcp_func/sub-{subject}/clustering/correlation_matrix_seed-{seed}_{vox_res}.npz",
+        correlation=bids_hcpfunc(
+            datatype="clustering",
+            label="{seed}",
+            desc="correlationMatrix",
+            suffix="{vox_res}.npz",
+        ),
     group:
         "funcparc_participant2"
     script:
@@ -169,7 +270,12 @@ rule combine_correlation:
             allow_missing=True,
         ),
     output:
-        combined_corr="results/hcp_func/group/clustering/correlation_matrix_seed-{seed}_{vox_res}.npz",
+        combined_corr=bids_hcpfunc_group(
+            datatype="group/clustering",
+            label="{seed}",
+            desc="correlationMatrix",
+            suffix="{vox_res}.npz",
+    )
     group:
         "funcparc_group2"
     script:
@@ -185,11 +291,21 @@ rule func_clustering:
         max_k=config["max_k"],
     output:
         niftis=expand(
-            "results/hcp_func/group/clustering/seed-{seed}_{vox_res}_method-spectralcosine_k-{k}_cluslabels.nii.gz",
+            bids_hcpfunc_group(
+                datatype="group/clustering",
+                label="{seed}",
+                desc="spectralCosine",
+                k="{k}",
+                suffix="{vox_res}clusLabels.nii.gz",
+            ),
             k=range(2, config["max_k"] + 1),
             allow_missing=True,
         ),
-        labels="results/hcp_func/group/clustering/clusterlabels_seed-{seed}_{vox_res}.csv",
+        labels=bids_hcpfunc_group(
+            datatype="group/clustering",
+            label="{seed}",
+            suffix="{vox_res}.csv",
+        ),
     group:
         "funcparc_group2"
     script:

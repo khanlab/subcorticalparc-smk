@@ -56,7 +56,7 @@ include: "rules/common.smk"
 include: "rules/hcp_mmp.smk"
 include: "rules/diffparc.smk"
 include: "rules/tractmap.smk"
-# include: "rules/funcparc.smk"
+include: "rules/funcparc.smk"
 
 # Structural + Functional
 rule all:
