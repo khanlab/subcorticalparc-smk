@@ -335,13 +335,19 @@ rule extract_from_zip:
             filename=config['hcp_func']['icafix_package_dict'].keys(),    
         ),
         out_dir=directory(
-                bids_hcpfunc(datatype="data")
+            bids_hcpfunc(
+                datatype="data",
+                include_subject_dir=False,
+                include_session_dir=False,
+            )
         ),
     output:
         files=expand(
             bids_hcpfunc(
                 datatype="data",
                 suffix="{filename}",
+                include_subject_dir=False,
+                include_session_dir=False,
             ),
             filename=config['hcp_func']['icafix_package_dict'].keys(),
             allow_missing=True,

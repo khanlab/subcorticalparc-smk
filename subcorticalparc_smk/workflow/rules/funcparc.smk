@@ -18,7 +18,9 @@ rule prepare_subcortical:
     input:
         vol=bids_hcpfunc(
             datatype="data",
-            suffix="{subject}/MNINonLinear/Results/{run}/{run}_hp2000_clean.nii.gz"
+            suffix="{subject}/MNINonLinear/Results/{run}/{run}_hp2000_clean.nii.gz",
+            include_subject_dir=False,
+            include_session_dir=False,
         ),
         rois=rules.create_atlas.output.nifti,
     params:
@@ -52,7 +54,9 @@ rule cifti_separate:
     input:
         dtseries=bids_hcpfunc(
             datatype="data",
-            suffix="{subject}/MNINonLinear/Results/{run}/{run}_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii"
+            suffix="{subject}/MNINonLinear/Results/{run}/{run}_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii",
+            include_subject_dir=False,
+            include_session_dir=False,
         ),
     output:
         lh=bids_hcpfunc(
@@ -110,10 +114,14 @@ rule extract_confounds:
         rois=bids_hcpfunc(
             datatype="data",
             suffix="{subject}/MNINonLinear/ROIs/Atlas_wmparc.1.60.nii.gz",
+            include_subject_dir=False,
+            include_session_dir=False,
         ),
         movreg=bids_hcpfunc(
             datatype="data",
             suffix="{subject}/MNINonLinear/Results/{run}/Movement_Regressors_dt.txt",
+            include_subject_dir=False,
+            include_session_dir=False,
         ),
     output:
         confounds=bids_hcpfunc(
@@ -139,7 +147,7 @@ rule clean_dtseries:
         dtseries=rules.create_dtseries.output.dtseries,
         confounds=rules.extract_confounds.output.confounds,
     params:
-        cleaning= Path(workflow.basedir).parent / config["ciftify-clean"]["hcp"] #if hcp in out else config['ciftify-clean']['general']
+        cleaning=Path(workflow.basedir).parent / config["ciftify-clean"]["hcp"] #if hcp in out else config['ciftify-clean']['general']
     output:
         cleaned_dtseries=bids_hcpfunc(
             datatype="func",
