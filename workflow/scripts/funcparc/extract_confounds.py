@@ -1,9 +1,9 @@
-#!/usr/bin/env python 
+#!/bin/env python 
 import numpy as np
 import pandas as pd
 import nibabel as nib
 from nibabel.nifti1 import Nifti1Image
-from linear.input_data import NiftiLabelsMasker
+from nilearn.input_data import NiftiLabelsMasker
 
 def extract_confounds(rois, vol, movreg, output):
     atlas = nib.load(rois)

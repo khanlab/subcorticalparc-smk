@@ -1,21 +1,22 @@
-#!/usr/bin/env python
+#!/bin/env python
 import nibabel as nib
 import numpy as np
 
-def merge_roi(atlas, roi):
-    # Load atlas and update atlas
+def merge_roi(atlas, roi, out_fpath):
+    # Load atlas and roi
     atlas = nib.load(atlas)
+    roi = nib.load(roi)
+    roi = roi.get_fdata()
+
+    # Update atlas
     out_atlas = atlas.get_fdata()
     out_atlas[out_atlas == 16] = 0
     out_atlas[roi == 1] = 16
 
-    # Load roi
-    roi = nib.load(roi)
-    roi = roi.get_fdata()
 
     # Save merged roi
-    img = nib.Nifti1Image(atlas_new, affine=atlas.affine, header=atlas.header)
-    nib.save(img, out_fpath))
+    img = nib.Nifti1Image(out_atlas, affine=atlas.affine, header=atlas.header)
+    nib.save(img, out_fpath)
 
 
 if __name__ == "__main__":

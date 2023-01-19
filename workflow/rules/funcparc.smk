@@ -18,7 +18,7 @@ rule prepare_subcortical:
     group:
         'funcparc_participant2'
     shell:
-        'bash {params.command} {input.vol} {input.rois} {params.tmp} {output} &> {log}'
+        'bash {params.command} {input.vol} {input.rois} {params.tmp} {params.sigma} {output} &> {log}'
     
 
 rule cifti_separate:
@@ -60,11 +60,12 @@ rule extract_confounds:
     output:
         confounds = 'results/hcp_func/sub-{subject}/fmri/{run}_seed-{seed}_{vox_res}_confounds.tsv'
     log: 'logs/sub-{subject}/extract_confounds_{run}_{vox_res}_seed-{seed}.log'
-    container: config['singularity']['connectome_workbench']
+    container: 
+        config["singularity"]["pythondeps"]
     group:
         'funcparc_participant2'
     script: 
-        'scripts/funcparc/extract_confounds.py'
+        '../scripts/funcparc/extract_confounds.py'
 
 
 rule clean_dtseries:
@@ -73,17 +74,18 @@ rule clean_dtseries:
         dtseries = rules.create_dtseries.output.dtseries,
         confounds = rules.extract_confounds.output.confounds,
     params:
-        cleaning = config['ciftify-clean']['hcp'] #if hcp in out else config['ciftify-clean']['general']
+        cleaning = config['ciftify-clean']['hcp'], #if hcp in out else config['ciftify-clean']['general']
+        ciftify_img = config['singularity']['ciftify']
     output:
         cleaned_dtseries = 'results/hcp_func/sub-{subject}/fmri/{run}_cleaned.seed-{seed}_{vox_res}_59k_fs_LR.dtseries.nii'
     resources:
         mem_mb = 12000,
     log: 'logs/sub-{subject}/clean_dtseries_{run}_{vox_res}_seed-{seed}.log'
-    container: config['singularity']['ciftify']
+    # container: config['singularity']['ciftify'] # using container directly causes workflow to hang
     group:
         'funcparc_participant2'
     shell:
-        'cifitify_clean_img --output-file={output.cleaned_dtseries} --confounds-tsv={input.confounds} --clean-config={params.cleaning} --verbose {input.dtseries} &> {log}'
+        'singularity exec {params.ciftify_img} ciftify_clean_img --output-file={output.cleaned_dtseries} --confounds-tsv={input.confounds} --clean-config={params.cleaning} --verbose {input.dtseries} &> {log}'
 
 
 rule concat_clean_runs:
@@ -145,10 +147,12 @@ rule compute_correlation:
         seed = config['seed']['structures']['ZIR']
     output:
         correlation = 'results/hcp_func/sub-{subject}/clustering/correlation_matrix_seed-{seed}_{vox_res}.npz'
+    container: 
+        config["singularity"]["pythondeps"]
     group:
         'funcparc_participant2'
     script:
-        'scripts/funcparc/compute_correlation.py'
+        '../scripts/funcparc/compute_correlation.py'
 
 
 rule combine_correlation:
@@ -161,10 +165,12 @@ rule combine_correlation:
         )
     output:
         combined_corr = 'results/hcp_func/group/clustering/correlation_matrix_seed-{seed}_{vox_res}.npz'
+    container: 
+        config["singularity"]["pythondeps"]
     group:
         'funcparc_group2'
     script:
-        'scripts/funcparc/combine_correlation.py'
+        '../scripts/funcparc/combine_correlation.py'
 
 
 rule func_clustering:
@@ -181,7 +187,9 @@ rule func_clustering:
             allow_missing=True,
         ),
         labels = 'results/hcp_func/group/clustering/clusterlabels_seed-{seed}_{vox_res}.csv'
+    container: 
+        config["singularity"]["pythondeps"]
     group:
         'funcparc_group2'
     script:
-        'scripts/funcparc/spectral_clustering.py'
+        '../scripts/funcparc/spectral_clustering.py'

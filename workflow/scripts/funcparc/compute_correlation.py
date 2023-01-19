@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/bin/env python
 import numpy as np
 import pandas as pd
 import nibabel as nib
@@ -10,13 +10,13 @@ def corr2_coeff(A,B):
     return np.dot(A, B.T) / np.sqrt(np.dot(ssA[:,None], ssB[None]))
 
 
-def compute_correlation(vol, seed, ptseries, output)
+def compute_correlation(vol, seed, ptseries, output):
     # Load cleaned voxel-level timeseries but only keep seed 
     c = nib.load(vol)
 
     structures = {}
     for brain_model in c.header.get_index_map(1).brain_models:
-        name  = brain_model.brain_structure.split("STRUCTURE_",1)[1]
+        name = brain_model.brain_structure.split("STRUCTURE_",1)[1]
         if name == "BRAIN_STEM": # CIFTI doesn't like custom names so stored as BRAIN_STEM
             name = seed
             stype = brain_model.model_type.split("TYPE_",1)[1]
@@ -59,7 +59,7 @@ def compute_correlation(vol, seed, ptseries, output)
 if __name__ == '__main__':
     compute_correlation(
         vol=snakemake.input.vol,
-        seed=snakemake.params.seed[0],
+        seed=snakemake.params.seed,
         ptseries=snakemake.input.ptseries,
         output=snakemake.output.correlation,
     )
