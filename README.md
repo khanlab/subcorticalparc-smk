@@ -1,6 +1,6 @@
 # Snakemake workflow: zonaconn-smk
-Snakemake workflow for diffusion connectivity with the zona 
-incerta. 
+Snakemake workflow for diffusion and functional connectivity with 
+the zona incerta. 
 
 _This workflow is currently customized to run with data from the HCP1200 7T_
 
@@ -29,6 +29,7 @@ space
 ### Singularity containers
  - Freesurfer (for `mri_convert`, `mris_convert`, `mri_info`)
  - Connectome workbench
+ - Ciftify
  - Neuroglia (contains FSL, ANTS, gnu parallel etc..)
  - FSL6 with CUDA container
  - pythondeps-zonaconn (dependencies for python rules) 
@@ -86,6 +87,7 @@ snakemake --profile cc-slurm
 * Ali Khan @akhanf 
 * Sudesna Chakraborty
 * Jason Kai
+* Roy Haast
 
 ## Reference
 
