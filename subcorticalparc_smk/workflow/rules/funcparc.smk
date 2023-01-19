@@ -16,19 +16,14 @@ bids_hcpfunc_group = partial(
 rule prepare_subcortical:
     """Prep subcortical rs-fMRI as done by HCP"""
     input:
-        vol=bids_hcpfunc(
-            datatype="data",
-            suffix="{subject}/MNINonLinear/Results/{run}/{run}_hp2000_clean.nii.gz",
-            include_subject_dir=False,
-            include_session_dir=False,
-        ),
+        vol=Path(hcp_func_dir) / "data/sub-{subject}/MNINonLinear/Results/{run}/{run}_hp2000_clean.nii.gz",
         rois=rules.create_atlas.output.nifti,
     params:
         sigma=config["hcp_func"]["sigma"],
         tmp=directory(
             bids_hcpfunc(datatype="tmp")
         ),
-        command="../scripts/funcparc/prep_subcortical.sh",
+        command=Path(workflow.basedir) / "scripts/funcparc/prep_subcortical.sh",
     output:
         out=bids_hcpfunc(
             datatype="func",
@@ -52,12 +47,7 @@ rule prepare_subcortical:
 rule cifti_separate:
     """Separate cortical timeseries data from CIFTI timeseries provided by HCP"""
     input:
-        dtseries=bids_hcpfunc(
-            datatype="data",
-            suffix="{subject}/MNINonLinear/Results/{run}/{run}_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii",
-            include_subject_dir=False,
-            include_session_dir=False,
-        ),
+        dtseries=Path(hcp_func_dir) / "data/sub-{subject}/MNINonLinear/Results/{run}/{run}_Atlas_1.6mm_MSMAll_hp2000_clean.dtseries.nii",
     output:
         lh=bids_hcpfunc(
             datatype="func",
@@ -108,21 +98,11 @@ rule create_dtseries:
 
 
 rule extract_confounds:
-    """Extract cofounds for cleaning rs-fMRI data"""
+    """Extract confounds for cleaning rs-fMRI data"""
     input:
         vol=rules.prepare_subcortical.input.vol,
-        rois=bids_hcpfunc(
-            datatype="data",
-            suffix="{subject}/MNINonLinear/ROIs/Atlas_wmparc.1.60.nii.gz",
-            include_subject_dir=False,
-            include_session_dir=False,
-        ),
-        movreg=bids_hcpfunc(
-            datatype="data",
-            suffix="{subject}/MNINonLinear/Results/{run}/Movement_Regressors_dt.txt",
-            include_subject_dir=False,
-            include_session_dir=False,
-        ),
+        rois=Path(hcp_func_dir) / "data/sub-{subject}/MNINonLinear/ROIs/Atlas_wmparc.1.60.nii.gz",
+        movreg=Path(hcp_func_dir) / "data/sub-{subject}/MNINonLinear/Results/{run}/Movement_Regressors_dt.txt",
     output:
         confounds=bids_hcpfunc(
             datatype="func",
@@ -131,14 +111,16 @@ rule extract_confounds:
             desc="confounds",
             suffix="{vox_res}.tsv"
         ),
+    resources:
+        mem_mb=32000,
     log:
         "logs/sub-{subject}/extract_confounds_{run}_{vox_res}_seed-{seed}.log",
     container:
-        config["singularity"]["connectome_workbench"]
+        config["singularity"]["pythondeps"]
     group:
         "funcparc_participant2"
     script:
-        "scripts/funcparc/extract_confounds.py"
+        "../scripts/funcparc/extract_confounds.py"
 
 
 rule clean_dtseries:
@@ -168,7 +150,7 @@ rule clean_dtseries:
     group:
         "funcparc_participant2"
     shell:
-        "singularity exec {params.ciftify_img} cifitify_clean_img --output-file={output.cleaned_dtseries} --confounds-tsv={input.confounds} --clean-config={params.cleaning} --verbose {input.dtseries} &> {log}"
+        "singularity exec {params.ciftify_img} ciftify_clean_img --output-file={output.cleaned_dtseries} --confounds-tsv={input.confounds} --clean-config={params.cleaning} --verbose {input.dtseries} &> {log}"
 
 
 rule concat_clean_runs:
@@ -203,8 +185,8 @@ rule wishart_postfilter:
     input:
         concat_dtseries=rules.concat_clean_runs.output.concat_dtseries,
     params:
-        command="../scripts/funcparc/wishart_filter.sh",
-        script="../scripts/funcparc/wishart_filter.m",
+        command= Path(workflow.basedir) / "scripts/funcparc/wishart_filter.sh",
+        script= Path(workflow.basedir) / "scripts/funcparc/wishart_filter.m",
     output:
         cleaned=bids_hcpfunc(
             datatype="func",
@@ -261,10 +243,12 @@ rule compute_correlation:
             desc="correlationMatrix",
             suffix="{vox_res}.npz",
         ),
+    container: 
+        config["singularity"]["pythondeps"]
     group:
         "funcparc_participant2"
     script:
-        "scripts/funcparc/compute_correlation.py"
+        "../scripts/funcparc/compute_correlation.py"
 
 
 rule combine_correlation:
@@ -282,10 +266,12 @@ rule combine_correlation:
             desc="correlationMatrix",
             suffix="{vox_res}.npz",
         )
+    container: 
+        config["singularity"]["pythondeps"]
     group:
         "funcparc_group2"
     script:
-        "scripts/funcparc/combine_correlation.py"
+        "../scripts/funcparc/combine_correlation.py"
 
 
 rule func_clustering:
@@ -312,7 +298,9 @@ rule func_clustering:
             label="{seed}",
             suffix="{vox_res}.csv",
         ),
+    container: 
+        config["singularity"]["pythondeps"]
     group:
         "funcparc_group2"
     script:
-        "scripts/funcparc/spectral_clustering.py"
+        "../scripts/funcparc/spectral_clustering.py"

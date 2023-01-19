@@ -335,28 +335,18 @@ rule extract_from_zip:
             filename=config['hcp_func']['icafix_package_dict'].keys(),    
         ),
         out_dir=directory(
-            bids_hcpfunc(
-                datatype="data",
-                include_subject_dir=False,
-                include_session_dir=False,
-            )
-        ),
+            Path(hcp_func_dir) / "data"
+        )
     output:
         files=expand(
-            bids_hcpfunc(
-                datatype="data",
-                suffix="{filename}",
-                include_subject_dir=False,
-                include_session_dir=False,
-            ),
+            Path(hcp_func_dir) / "data/sub-{filename}",
             filename=config['hcp_func']['icafix_package_dict'].keys(),
-            allow_missing=True,
         )
     group: "funcparc_participant1"
     run:
         out_dir = params.out_dir
         for pkg, f in zip(input.packages, params.files_in_pkg):
-            shell("unzip -n {pkg} {f} -d {out_dir}")
+            shell("unzip -n {pkg} {f} -d {out_dir} && mv {out_dir}/{f} {out_dir}/sub-{f}")
 
 
 rule merge_roi:
