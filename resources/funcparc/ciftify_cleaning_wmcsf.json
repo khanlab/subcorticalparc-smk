@@ -1,0 +1,23 @@
+{
+    "--tr": "0.720",
+    "--right-surface": null,
+    "--standardize": false,
+    "--left-surface": null,
+    "--drop-dummy-TRs": "5",
+    "--low-pass": "0.08",
+    "--smooth-fwhm": null,
+    "--confounds-tsv": "/scratch/rhaast/hcp_lifespan/hcpa_preprocessing/HCA6283371_V1_MR/MNINonLinear/Results/rfMRI_REST1_AP/Confounds.tsv",
+    "--verbose": true,
+    "--no-cleaning": false,
+    "--detrend": false,
+    "--help": false,
+    "--cf-sqtd-cols": "",
+    "--clean-config": null,
+    "--cf-cols": "CSF,WhiteMatter",
+    "--high-pass": "0.009",
+    "--output-file": "/scratch/rhaast/hcp_lifespan/hcpa_preprocessing/HCA6283371_V1_MR/MNINonLinear/Results/rfMRI_REST1_AP/rfMRI_REST1_AP_Atlas.cleaned.dtseries.nii",
+    "--debug": false,
+    "--cf-sq-cols": "",
+    "--cf-td-cols": "",
+    "<func_input>": "/scratch/rhaast/hcp_lifespan/hcpa_preprocessing/HCA6283371_V1_MR/MNINonLinear/Results/rfMRI_REST1_AP/rfMRI_REST1_AP_Atlas.dtseries.nii"
+}

@@ -10,3 +10,4 @@ hcp/
 
 # Misc
 .deprecated/
+.ipynb_checkpoints/

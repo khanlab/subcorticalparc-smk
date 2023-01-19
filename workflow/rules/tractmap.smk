@@ -39,9 +39,9 @@ rule transform_clus_to_subj:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/transform_clus_to_subject/sub-{subject}_template-{template}_hemi-{hemi}_{seed}.log",
+        "logs/diffparc/transform_clus_to_subject/sub-{subject}_template-{template}_hemi-{hemi}_{seed}.log",
     group:
-        "participant2"
+        "diffparc_participant2"
     threads: 8
     resources:
         mem_mb=32000,
@@ -73,9 +73,9 @@ rule resample_brainmask_tractmaps:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/resample_brainmask_tractmaps/sub-{subject}.log",
+        "logs/diffparc/resample_brainmask_tractmaps/sub-{subject}.log",
     group:
-        "participant2"
+        "diffparc_participant2"
     shell:
         "fslmaths {input.dwi} -bin {output.mask} &&"
         "mri_convert {output.mask} -vs {params.seed_resolution} {params.seed_resolution} {params.seed_resolution} {output.mask_res} -rt nearest &> {log}"
@@ -115,9 +115,9 @@ rule resample_clus_seed:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/resample_clus_seed/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
+        "logs/diffparc/resample_clus_seed/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
     group:
-        "participant2"
+        "diffparc_participant2"
     shell:
         "reg_resample -flo {input.seed} -res {output.seed_res} -ref {input.mask_res} -inter 0 &> {log}"
 
@@ -135,8 +135,8 @@ rule subj_split_clus_to_binary_masks:
     output:
         seed_label = bids(root='results/tractmap',subject='{subject}',space='individual',label='{seed}',method='spectralcosine',k='{k}',from_='{template}',res='super',desc='sorted',kindex='{kindex}',suffix='seed.nii.gz')
     container: config['singularity']['neuroglia']
-    log: 'logs/subj_split_clus_to_binary_masks/sub-{subject}_template-{template}_{seed}_k-{k}.log'
-    group: 'participant2'
+    log: 'logs/diffparc/subj_split_clus_to_binary_masks/sub-{subject}_template-{template}_{seed}_k-{k}.log'
+    group: 'diffparc_participant2'
     threads: 8
     shell:
         #use c3d's split command to go from discrete seg image to multiple binary images.. we remove image 00 since that is the background label
@@ -210,9 +210,9 @@ rule track_from_clusters:
         time=360,
         gpus=1,  #1 gpu
     log:
-        "logs/track_from_clusters/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}_kindex-{kindex}.log",
+        "logs/diffparc/track_from_clusters/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}_kindex-{kindex}.log",
     group:
-        "participant2"
+        "diffparc_participant2"
     shell:
         "mkdir -p {output.probtrack_dir} && "
         "{params.extract_seed_cmd} && singularity exec -e --nv {params.container} "
@@ -255,11 +255,11 @@ rule combine_tractmaps:
             suffix="tractmap4d.nii.gz",
         ),
     log:
-        "logs/combine_tractmaps/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
+        "logs/diffparc/combine_tractmaps/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
     container:
         config["singularity"]["neuroglia"]
     group:
-        "participant2"
+        "diffparc_participant2"
     resources:
         mem_mb=32000,
     shell:
@@ -302,9 +302,9 @@ rule transform_tractmaps_to_template:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/transform_tractmaps_to_template/sub-{subject}_hemi-{hemi}_{seed}_{template}_k-{k}_kindex-{kindex}.log",
+        "logs/diffparc/transform_tractmaps_to_template/sub-{subject}_hemi-{hemi}_{seed}_{template}_k-{k}_kindex-{kindex}.log",
     group:
-        "participant2"
+        "diffparc_participant2"
     threads: 8
     resources:
         mem_mb=32000,
@@ -344,13 +344,13 @@ rule combine_tractmaps_warped:
             suffix="tractmap4d.nii.gz",
         ),
     log:
-        "logs/combine_tractmaps_warped/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
+        "logs/diffparc/combine_tractmaps_warped/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
     container:
         config["singularity"]["neuroglia"]
     resources:
         mem_mb=32000,
     group:
-        "participant2"
+        "diffparc_participant2"
     shell:
         "fslmerge -t {output.tractmaps_4d} {input.tractmaps} &> {log}"
 
@@ -378,7 +378,7 @@ rule avg_tractmaps_template:
     container:
         config["singularity"]["neuroglia"]
     group:
-        "group2"
+        "diffparc_group2"
     threads: 8
     resources:
         mem_mb=32000,
@@ -407,9 +407,9 @@ rule vote_tractmap_template:
     container:
         config["singularity"]["neuroglia"]
     log:
-        "logs/vote_tractmap_template/{template}_hemi-{hemi}_{seed}_k-{k}.log",
+        "logs/diffparc/vote_tractmap_template/{template}_hemi-{hemi}_{seed}_k-{k}.log",
     group:
-        "group2"
+        "diffparc_group2"
     threads: 8
     resources:
         mem_mb=32000,
