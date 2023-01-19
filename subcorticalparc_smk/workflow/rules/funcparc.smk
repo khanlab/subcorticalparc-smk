@@ -46,7 +46,7 @@ rule prepare_subcortical:
     group:
         "funcparc_participant2"
     shell:
-        "bash {params.command} {input.vol} {input.rois} {params.tmp} {output} &> {log}"
+        "bash {params.command} {input.vol} {input.rois} {params.tmp} {params.sigma} {output} &> {log}"
 
 
 rule cifti_separate:
@@ -147,7 +147,8 @@ rule clean_dtseries:
         dtseries=rules.create_dtseries.output.dtseries,
         confounds=rules.extract_confounds.output.confounds,
     params:
-        cleaning=Path(workflow.basedir).parent / config["ciftify-clean"]["hcp"] #if hcp in out else config['ciftify-clean']['general']
+        cleaning=Path(workflow.basedir).parent / config["ciftify-clean"]["hcp"], #if hcp in out else config['ciftify-clean']['general']
+        ciftify_img = config['singularity']['ciftify']
     output:
         cleaned_dtseries=bids_hcpfunc(
             datatype="func",
@@ -162,12 +163,12 @@ rule clean_dtseries:
         mem_mb=12000,
     log:
         "logs/sub-{subject}/clean_dtseries_{run}_{vox_res}_seed-{seed}.log",
-    container:
-        config["singularity"]["ciftify"]
+    # container:
+    #     config["singularity"]["ciftify"] # using container directly causes workflow to hang
     group:
         "funcparc_participant2"
     shell:
-        "cifitify_clean_img --output-file={output.cleaned_dtseries} --confounds-tsv={input.confounds} --clean-config={params.cleaning} --verbose {input.dtseries} &> {log}"
+        "singularity exec {params.ciftify_img} cifitify_clean_img --output-file={output.cleaned_dtseries} --confounds-tsv={input.confounds} --clean-config={params.cleaning} --verbose {input.dtseries} &> {log}"
 
 
 rule concat_clean_runs:

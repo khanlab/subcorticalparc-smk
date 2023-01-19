@@ -1,8 +1,4 @@
-<<<<<<< HEAD:workflow/scripts/funcparc/extract_confounds.py
 #!/bin/env python 
-=======
-#!/usr/bin/env python
->>>>>>> 28d0383... restructure for snakebids:subcorticalparc_smk/workflow/scripts/funcparc/extract_confounds.py
 import numpy as np
 import pandas as pd
 import nibabel as nib
