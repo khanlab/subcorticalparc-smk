@@ -1,3 +1,6 @@
+![Version](https://img.shields.io/github/v/tag/khanlab/subcorticalparc-smk?label=version)
+[![DOI](https://zenodo.org/badge/569796621.svg)](https://zenodo.org/badge/latestdoi/569796621)
+
 # Snakemake workflow: subcorticalparc-smk
 Snakemake workflow for identifying structural and functional connectivity with 
 regions/structures of interest. 
