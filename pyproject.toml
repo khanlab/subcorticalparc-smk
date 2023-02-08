@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "zonaconn-smk"
-version = "0.1.0-pre-1"
+version = "0.1.0"
 description = "Snakemake workflow to identify connectivity to the zona incerta"
 authors = [
     "Ali Khan",
