@@ -1,20 +1,20 @@
-# Snakemake workflow: zonaconn-smk
-Snakemake workflow for diffusion and functional connectivity with 
-the zona incerta. 
+# Snakemake workflow: subcorticalparc-smk
+Snakemake workflow for identifying structural and functional connectivity with 
+regions/structures of interest. 
 
 _This workflow is currently customized to run with data from the HCP1200 7T_
 
 ## Description
 Using the HCP-MMP cortical parcellation (180 regions, left/right sym labels) 
-as targets and performs probabilistic tracking from the zona incerta seed in 
-each subject's native space. The connectivity data from seed voxels are brought
-into the template space to perform spectral clustering on the concatenated 
-feature vectors to parcellate into `k` regions.
+as targets and performs probabilistic tracking from the region / structure of 
+interest seed in each subject's native space. The connectivity data from seed 
+voxels are brought into the template space to perform spectral clustering on 
+the concatenated feature vectors to parcellate into `k` regions.
 
 <!-- To be updated -->
 ### Inputs
-- Probabilistic segmentation(s) as 3D NIFTI for ZI on a single MNI template 
-space
+- Probabilistic segmentation(s) as 3D NIFTI for region/structure of interest 
+on a single MNI template space
 - participants.tsv with target subject IDs
 - For each target subject:
   - Freesurfer processed data
