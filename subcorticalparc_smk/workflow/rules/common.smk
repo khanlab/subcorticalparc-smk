@@ -1,15 +1,16 @@
-def bids(
+def bids_template(
     root=None,
     prefix=None,
     suffix=None,
-    subject=None,
-    session=None,
+    # subject=None,
+    # session=None,
     include_subject_dir=True,
     include_session_dir=True,
     template=None,
     **entities,
 ):
-    """Helper function for generating bids paths for snakemake workflows
+    """Helper function for generating bids paths for snakemake workflows for
+    template files (e.g. tpl-)
 
     File path is of the form:
 
@@ -84,8 +85,8 @@ def bids(
     # replace underscores in keys (needed to that users can use reserved keywords by appending a _)
     entities = {k.replace("_", ""): v for k, v in entities.items()}
 
-    if isinstance(subject, str) and isinstance(template, str):
-        raise ("template and subject cannot be used together")
+    # if isinstance(subject, str) and isinstance(template, str):
+    #     raise ("template and subject cannot be used together")
 
     # strict ordering of bids entities is specified here:
     order = OrderedDict(
@@ -125,10 +126,10 @@ def bids(
         filename.append(prefix)
 
     # if subject defined then append to file and folder
-    if isinstance(subject, str):
-        if include_subject_dir is True:
-            folder.append(f"sub-{subject}")
-        filename.append(f"sub-{subject}")
+    # if isinstance(subject, str):
+    #     if include_subject_dir is True:
+    #         folder.append(f"sub-{subject}")
+    #     filename.append(f"sub-{subject}")
 
     # if template defined then append to file and folder
     if isinstance(template, str):
@@ -137,10 +138,10 @@ def bids(
         filename.append(f"tpl-{template}")
 
     # if session defined then append to file and folder
-    if isinstance(session, str):
-        if include_session_dir is True:
-            folder.append(f"ses-{session}")
-        filename.append(f"ses-{session}")
+    # if isinstance(session, str):
+    #     if include_session_dir is True:
+    #         folder.append(f"ses-{session}")
+    #     filename.append(f"ses-{session}")
 
     # add the entities
     for key, val in order.items():

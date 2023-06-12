@@ -1,10 +1,13 @@
+diffparc_dir = str(Path(config["output_dir"]) / "diffparc")
+tractmap_dir = str(Path(config["output_dir"]) / "tractmap")
+
 # warp group-based clusters back to each subject
 # space-T1w, desc-groupclus?, dseg
 rule transform_clus_to_subj:
     input:
         cluster_k=expand(
-            bids(
-                root="results/diffparc",
+            bids_template(
+                root=diffparc_dir,
                 template="{template}",
                 hemi="{hemi}",
                 label="{seed}",
@@ -22,8 +25,7 @@ rule transform_clus_to_subj:
     output:
         cluster_k=expand(
             bids(
-                root="results/tractmap",
-                subject="{subject}",
+                root=tractmap_dir,
                 space="individual",
                 hemi="{hemi}",
                 label="{seed}",
@@ -32,6 +34,7 @@ rule transform_clus_to_subj:
                 from_="{template}",
                 desc="sorted",
                 suffix="dseg.nii.gz",
+                **inputs["T1w"].input_wildcards,
             ),
             k=range(2, config["max_k"] + 1),
             allow_missing=True,
@@ -58,17 +61,17 @@ rule resample_brainmask_tractmaps:
         seed_resolution=config["probtrack_tractmap"]["seed_resolution"],
     output:
         mask=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             label="brain",
             suffix="mask.nii.gz",
+            **inputs["T1w"].input_wildcards,
         ),
         mask_res=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             label="brain",
             res="super",
             suffix="mask.nii.gz",
+            **inputs["T1w"].input_wildcards,
         ),
     container:
         config["singularity"]["neuroglia"]
@@ -86,8 +89,7 @@ rule resample_brainmask_tractmaps:
 rule resample_clus_seed:
     input:
         seed=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             space="individual",
             hemi="{hemi}",
             label="{seed}",
@@ -96,12 +98,12 @@ rule resample_clus_seed:
             from_="{template}",
             desc="sorted",
             suffix="dseg.nii.gz",
+            **inputs["T1w"].input_wildcards,
         ),
         mask_res=rules.resample_brainmask_tractmaps.output.mask_res,
     output:
         seed_res=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             space="individual",
             hemi="{hemi}",
             label="{seed}",
@@ -111,6 +113,7 @@ rule resample_clus_seed:
             res="super",
             desc="sorted",
             suffix="dseg.nii.gz",
+            **inputs["T1w"].input_wildcards,
         ),
     container:
         config["singularity"]["neuroglia"]
@@ -150,8 +153,7 @@ rule subj_split_clus_to_binary_masks:
 rule track_from_clusters:
     input:
         cluster_k=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             space="individual",
             hemi="{hemi}",
             label="{seed}",
@@ -161,6 +163,7 @@ rule track_from_clusters:
             res="super",
             desc="sorted",
             suffix="dseg.nii.gz",
+            **inputs["T1w"].input_wildcards,
         ),
         mask=rules.resample_brainmask_tractmaps.output.mask,
     params:
@@ -178,8 +181,7 @@ rule track_from_clusters:
     output:
         probtrack_dir=directory(
             bids(
-                root="results/tractmap",
-                subject="{subject}",
+                root=tractmap_dir,
                 space="individual",
                 hemi="{hemi}",
                 label="{seed}",
@@ -189,11 +191,11 @@ rule track_from_clusters:
                 res="super",
                 suffix="probtrack",
                 kindex="{kindex}",
+                **inputs["T1w"].input_wildcards,
             )
         ),
         tractmap=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             space="individual",
             hemi="{hemi}",
             label="{seed}",
@@ -203,6 +205,7 @@ rule track_from_clusters:
             res="super",
             suffix="probtrack/fdt_paths.nii.gz",
             kindex="{kindex}",
+            **inputs["T1w"].input_wildcards,
         ),
     threads: 1
     resources:
@@ -227,24 +230,24 @@ rule combine_tractmaps:
     input:
         tractmaps=lambda wildcards: expand(
             bids(
-                root="results/tractmap",
-                subject=f"{wildcards.subject}",
+                root=tractmap_dir,
                 space="individual",
                 hemi="{hemi}",
-                label=f"{wildcards.seed}",
+                label="{seed}",
                 method="spectralcosine",
-                k=f"{wildcards.k}",
-                from_=f"{wildcards.template}",
+                k="{k}",
+                from_="{template}",
                 res="super",
                 suffix="probtrack/fdt_paths.nii.gz",
                 kindex="{kindex}",
+                **inputs["T1w"].input_wildcards,
             ),
             kindex=range(1, int(wildcards.k) + 1),
+            allow_missing=True,
         ),
     output:
         tractmaps_4d=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             space="individual",
             hemi="{hemi}",
             label="{seed}",
@@ -253,6 +256,7 @@ rule combine_tractmaps:
             from_="{template}",
             res="super",
             suffix="tractmap4d.nii.gz",
+            **inputs["T1w"].input_wildcards,
         ),
     log:
         "logs/diffparc/combine_tractmaps/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
@@ -271,8 +275,7 @@ rule combine_tractmaps:
 rule transform_tractmaps_to_template:
     input:
         tractmap=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             space="individual",
             hemi="{hemi}",
             label="{seed}",
@@ -282,13 +285,13 @@ rule transform_tractmaps_to_template:
             res="super",
             suffix="probtrack/fdt_paths.nii.gz",
             kindex="{kindex}",
+            **inputs["T1w"].input_wildcards,
         ),
         warp=config["transforms"]["ants_warp"],
         ref=config["transforms"]["ants_ref"],
     output:
         tractmap=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
@@ -298,6 +301,7 @@ rule transform_tractmaps_to_template:
             space="{template}",
             suffix="tractmap.nii.gz",
             kindex="{kindex}",
+            **inputs["T1w"].input_wildcards,
         ),
     container:
         config["singularity"]["neuroglia"]
@@ -318,30 +322,31 @@ rule combine_tractmaps_warped:
     input:
         tractmaps=lambda wildcards: expand(
             bids(
-                root="results/tractmap",
-                subject=f"{wildcards.subject}",
-                hemi=f"{wildcards.hemi}",
-                label=f"{wildcards.seed}",
+                root=tractmap_dir,
+                hemi="{hemi}",
+                label="{seed}",
                 method="spectralcosine",
-                k=f"{wildcards.k}",
-                from_=f"{wildcards.template}",
+                k="{k}",
+                from_="{template}",
                 res="super",
-                space=f"{wildcards.template}",
+                space="{template}",
                 suffix="tractmap.nii.gz",
                 kindex="{kindex}",
+                **inputs["T1w"].input_wildcards,
             ),
             kindex=range(1, int(wildcards.k) + 1),
+            allow_missing=True,
         ),
     output:
         tractmaps_4d=bids(
-            root="results/tractmap",
-            subject="{subject}",
+            root=tractmap_dir,
             hemi="{hemi}",
             label="{seed}",
             method="spectralcosine",
             k="{k}",
             space="{template}",
             suffix="tractmap4d.nii.gz",
+            **inputs["T1w"].input_wildcards,
         ),
     log:
         "logs/diffparc/combine_tractmaps_warped/sub-{subject}_template-{template}_hemi-{hemi}_{seed}_k-{k}.log",
@@ -361,12 +366,12 @@ rule avg_tractmaps_template:
     input:
         tractmaps_4d=expand(
             rules.combine_tractmaps_warped.output.tractmaps_4d,
-            subject=subjects,
+            subject=inputs["T1w"].input_lists["subject"],
             allow_missing=True,
         ),
     output:
-        average=bids(
-            root="results/tractmap",
+        average=bids_template(
+            root=tractmap_dir,
             template="{template}",
             hemi="{hemi}",
             label="{seed}",
@@ -394,8 +399,8 @@ rule vote_tractmap_template:
     params:
         bg_th=100,  # set only if avg streamline count > bg_th 
     output:
-        vote_seg=bids(
-            root="results/tractmap",
+        vote_seg=bids_template(
+            root=tractmap_dir,
             template="{template}",
             hemi="{hemi}",
             label="{seed}",

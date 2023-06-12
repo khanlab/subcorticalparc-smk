@@ -1,16 +1,36 @@
-import pandas as pd
-from os.path import join
 
+import snakebids
+from snakebids import bids 
+
+import pandas as pd
+
+from os.path import join
+from functools import partial
+from pathlib import Path
 
 configfile: "config/config.yml"
 
+inputs = snakebids.generate_inputs(
+    bids_dir=config["bids_dir"],
+    pybids_inputs=config["pybids_inputs"],
+    derivatives=config["derivatives"],
+    participant_label=config["participant_label"],
+    exclude_participant_label=config["exclude_participant_label"],
+    use_bids_inputs=True,
+)
+
 
 # Load participants.tsv and strip off 'sub-'
-df = pd.read_table(config["participants_tsv"])
-subjects = df["participant_id"].str.strip("sub-").to_list()
+# df = pd.read_table(config["participants_tsv"])
+# subjects = df["participant_id"].str.strip("sub-").to_list()
 
 # Get list of ROIs
-df_targets = pd.read_table(config["target"]["cortical"]["tsv"])
+df_targets = pd.read_table(
+    str(
+        Path(workflow.basedir).parent 
+        / Path(config["target"]["cortical"]["tsv"])
+    )
+)
 targets = df_targets.name.to_list()
 
 # Get seeds, as structure keys
@@ -22,7 +42,7 @@ hemis = ["L", "R"]
 
 # bids-naming for subject and template (only alphanumeric characters)
 wildcard_constraints:
-    subject="[a-zA-Z0-9]+",
+    **snakebids.get_wildcard_constraints(config["pybids_inputs"]),
     template="[a-zA-Z0-9]+",
     seed="[a-zA-Z0-9]+",
     k="[0-9]+",
@@ -30,12 +50,15 @@ wildcard_constraints:
 
 template = config["template"]
 
+tractmap_dir = str(Path(config["output_dir"]) / "tractmap")
+
 include: "rules/common.smk"
 include: "rules/hcp_mmp.smk"
 include: "rules/diffparc.smk"
 include: "rules/tractmap.smk"
 include: "rules/funcparc.smk"
 
+# Structural + Functional
 rule all:
     input:
         # group_tractseg=expand(
@@ -57,7 +80,7 @@ rule all:
         # Input below would result in same as --omit-from resample_clus_seed
         cluster_k=expand(
             bids(
-                root="results/tractmap",
+                root=tractmap_dir,
                 subject="{subject}",
                 space="individual",
                 hemi="{hemi}",
@@ -68,7 +91,7 @@ rule all:
                 desc="sorted",
                 suffix="dseg.nii.gz",
             ),
-            subject=subjects,
+            subject=inputs["T1w"].input_lists["subject"],
             template=template,
             seed=seeds,
             hemi=hemis,
@@ -85,7 +108,7 @@ rule all:
             vox_res=config['hcp_func']['voxel_size'],
         )
 
-
+# Structural only
 rule diffparc:
     input:
         # group_tractseg=expand(
@@ -107,7 +130,7 @@ rule diffparc:
         # Input below would result in same as --omit-from resample_clus_seed
         cluster_k=expand(
             bids(
-                root="results/tractmap",
+                root=tractmap_dir,
                 subject="{subject}",
                 space="individual",
                 hemi="{hemi}",
@@ -118,7 +141,7 @@ rule diffparc:
                 desc="sorted",
                 suffix="dseg.nii.gz",
             ),
-            subject=subjects,
+            subject=inputs["T1w"].input_lists["subject"],
             template=template,
             seed=seeds,
             hemi=hemis,
@@ -126,6 +149,7 @@ rule diffparc:
         ),
 
 
+# Functional only
 rule funcparc:
     input: 
         atlas=expand(
