@@ -61,7 +61,7 @@ rule probseg_to_binary_template_seed:
     container:
         config["singularity"]["neuroglia"]
     shell:
-        "fslmaths {input.seed} -thrP {params.thresh} -bin {output.mask} &> {log}"
+        "fslmaths {input.seed} -thr {params.thresh} -bin {output.mask} &> {log}"
 
 
 rule dilate_seed:
