@@ -235,7 +235,7 @@ rule compute_correlation:
         ptseries=rules.parcellate_tseries.output.ptseries,
         vol=rules.wishart_postfilter.output.cleaned,
     params:
-        seed=config["seed"]["structures"]["ZIR"],
+        seed=lambda wildcards: config["seed"]["structures"][wildcards.seed],
     output:
         correlation=bids_hcpfunc(
             datatype="clustering",

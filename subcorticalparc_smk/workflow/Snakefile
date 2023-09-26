@@ -32,6 +32,7 @@ df_targets = pd.read_table(
     )
 )
 targets = df_targets.name.to_list()
+target_nums = df_targets.label_num.to_list()
 
 # Get seeds, as structure keys
 seeds = config["seed"]["structures"].keys()

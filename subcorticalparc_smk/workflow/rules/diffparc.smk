@@ -56,26 +56,56 @@ rule probseg_to_binary_template_seed:
     log:
         "logs/diffparc/probseg_to_binary_template_seed/binary_{template}_hemi-{hemi}_{seed}.log",
     group:
-        "group0"
+        "subj"
     threads: 8
     container:
         config["singularity"]["neuroglia"]
     shell:
         "fslmaths {input.seed} -thrP {params.thresh} -bin {output.mask} &> {log}"
 
+def get_cmd_make_mask(wildcards):
+    if wildcards.hemi == 'L':
+        return " -cmv -pop -pop  -thresh 50% inf 1 0 -as MASK "
+    elif wildcards.hemi == 'R':
+        return " -cmv -pop -pop  -thresh 50% inf 0 1 -as MASK "
+
+rule atlas_to_binary_template_seed:
+    input:
+        seed=config['seed']['atlas_nii'],
+    params:
+        atlas_label=lambda wildcards: config['seed']['atlas_label'],
+        resample_mm="" if config['seed']['resample_mm'] == None else config['seed']['resample_mm'],
+        cmd_make_mask=get_cmd_make_mask
+    output:
+        mask=bids_tpl_diffparc(
+            hemi="{hemi}",
+            suffix="mask.nii.gz",
+        ),
+    group:
+        "subj"
+    threads: 8
+    container:
+        config["singularity"]["itksnap"]
+    shell:
+        "c3d {input.seed} -int 0 -retain-labels {params.atlas_label} -as SEG "
+        " {params.cmd_make_mask} "
+        " -push SEG -times "
+        " {params.resample_mm} -o {output.mask} " 
+
 
 rule dilate_seed:
     input:
-        mask=rules.probseg_to_binary_template_seed.output.mask,
+        mask=rules.atlas_to_binary_template_seed.output.mask if config['seed']['use_atlas'] else rules.probseg_to_binary_template_seed.output.mask 
     output:
         mask=bids_tpl_diffparc(
             desc="dilatedsmoothed", 
+            hemi="{hemi}",
             suffix="mask.nii.gz",
         ),
     container:
         config["singularity"]["neuroglia"]
     group:
-        "group0"
+        "subj"
     shell:
         "c3d {input.mask} -dilate 1 3x3x3vox -o {output.mask}"
 
@@ -95,7 +125,7 @@ rule combine_lr_hcp:
     log:
         "logs/diffparc/combine_lr_hcp/{subject}.log",
     group:
-        "participant1"
+        "subj"
     shell:
         "fslmaths {input.lh} -max {input.rh} {output.lh_rh} &> {log}"
 
@@ -104,7 +134,8 @@ rule combine_lr_hcp:
 # space-T1w,  probseg
 rule seed_to_subject:
     input:
-        seed=rules.dilate_seed.output.mask,
+        #seed=rules.dilate_seed.output.mask,
+        seed=rules.atlas_to_binary_template_seed.output.mask if config['seed']['use_atlas'] else rules.probseg_to_binary_template_seed.output.mask,  #skip dilate
         ref=join(config["bedpost"]["dir"], config["bedpost"]["ref"]),
         invwarp=config["transforms"]["ants_invwarp"],
     output:
@@ -119,7 +150,7 @@ rule seed_to_subject:
     log:
         "logs/diffparc/seed_to_subject/{template}_sub-{subject}_hemi-{hemi}_{seed}.log",
     group:
-        "participant1"
+        "subj"
     threads: 8
     shell:
         "antsApplyTransforms -d 3 --interpolation NearestNeighbor -i {input.seed} -o {output} -r {input.ref}  -t {input.invwarp} &> {log}"
@@ -147,7 +178,7 @@ rule resample_brainmask:
     log:
         "logs/diffparc/resample_brainmask/sub-{subject}.log",
     group:
-        "participant1"
+        "subj"
     shell:
         "fslmaths {input.dwi} -bin {output.mask} &&"
         "mri_convert {output.mask} -vs {params.seed_resolution} {params.seed_resolution} {params.seed_resolution} {output.mask_res} -rt nearest &> {log}"
@@ -158,7 +189,7 @@ rule resample_brainmask:
 rule resample_targets:
     input:
         mask_res=rules.resample_brainmask.output.mask_res,
-        targets=rules.combine_lr_hcp.output.lh_rh,
+        targets=config['targets_nii_force'],
     output:
         targets_res=bids_subj_diffparc(
             label=config["target"]["cortical"]["atlas"],
@@ -170,9 +201,11 @@ rule resample_targets:
     log:
         "logs/diffparc/resample_targets/sub-{subject}.log",
     group:
-        "participant1"
+        "subj"
     shell:
+#        "antsApplyTransforms -d 3 -i {input.targets} -o {output.targets_res} -r {input.mask_res} -n NearestNeighbor  &> {log}"
         "reg_resample -flo {input.targets} -res {output.targets_res} -ref {input.mask_res} -inter 0  &> {log}"
+
 
 
 # resamples seed seg to match resampled dwi mask
@@ -194,7 +227,7 @@ rule resample_seed:
     log:
         "logs/diffparc/resample_seed/{template}_sub-{subject}_hemi-{hemi}_{seed}.log",
     group:
-        "participant1"
+        "subj"
     shell:
         "reg_resample -flo {input.seed} -res {output.seed_res} -ref {input.mask_res} -inter 0 &> {log}"
 
@@ -204,7 +237,7 @@ rule split_targets:
     input:
         targets=rules.resample_targets.output.targets_res,
     params:
-        target_nums=[str(i + 1) for i in range(len(targets))],
+        target_nums=target_nums,
         target_seg=lambda wildcards, output: expand(
             "{target_seg_dir}/sub-{subject}_label-{target}_mask.nii.gz",
             subject=wildcards.subject,
@@ -225,7 +258,7 @@ rule split_targets:
         "logs/diffparc/split_targets/sub-{subject}.log",
     threads: 32
     group:
-        "participant1"
+        "subj"
     shell:  #TODO: could do this in c3d with less effort.. 
         "mkdir -p {output} && parallel  --jobs {threads} fslmaths {input.targets} -thr {{1}} -uthr {{1}} -bin {{2}} &> {log} ::: {params.target_nums} :::+ {params.target_seg}"
 
@@ -250,7 +283,7 @@ rule gen_targets_txt:
     log:
         "logs/diffparc/get_targets_txt/sub-{subject}.log",
     group:
-        "participant1"
+        "subj"
     run:
         f = open(output.target_txt, "w")
         for s in params.target_seg:
@@ -298,12 +331,48 @@ rule run_probtrack:
     log:
         "logs/diffparc/run_probtrack/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
     group:
-        "participant1"
+        "subj"
     shell:
         "mkdir -p {output.probtrack_dir} && singularity exec -e --nv {params.container} "
         "probtrackx2_gpu --samples={params.bedpost_merged}  --mask={input.mask} --seed={input.seed_res} "
         "--targetmasks={input.target_txt} --seedref={input.seed_res} --nsamples={params.nsamples} "
         "--dir={output.probtrack_dir} {params.probtrack_opts} -V 2  &> {log}"
+
+rule save_connmap_indiv_npz:
+    input:
+        mask=rules.resample_seed.output.seed_res,
+        probtrack_dir=rules.run_probtrack.output.probtrack_dir
+    params:
+        connmap_3d=lambda wildcards, input: expand(
+            bids(
+                root=input.probtrack_dir,
+                subject="{subject}",
+                prefix="seeds_to",
+                label="{target}",
+                suffix="mask.nii.gz",
+                include_subject_dir=False,
+            ),
+            target=targets,
+            **wildcards,
+            allow_missing=True,
+        ),
+    output:
+        connmap_npz=bids_gen_diffparc(
+            hemi="{hemi}",
+            from_='{template}',
+            space="individual",
+            suffix="connMap.npz",
+        ),
+    log:
+        "logs/diffparc/save_connmap_indiv_npz/sub-{subject}_hemi-{hemi}_label-{seed}_from-{template}.log",
+    container:
+        config["singularity"]["pythondeps"]
+    group:
+        "subj"
+    script:
+        "../scripts/diffparc/save_connmap_template_npz.py"
+
+
 
 
 # check bids-deriv dwi draft (not in main bids yet)
@@ -316,9 +385,9 @@ rule transform_conn_to_template:
             suffix="probtrack",
         ),
         warp=config["transforms"]["ants_warp"],
-        ref=rules.probseg_to_binary_template_seed.output.mask,
+        ref=rules.dilate_seed.input.mask,
     params:
-        in_connmap_3d=lambda _, input: expand(
+        in_connmap_3d=lambda wildcards, input: expand(
             bids(
                 root=input.probtrack_dir,
                 subject="{subject}",
@@ -329,8 +398,9 @@ rule transform_conn_to_template:
             ),
             target=targets,
             allow_missing=True,
+            **wildcards
         ),
-        out_connmap_3d=lambda _, output: expand(
+        out_connmap_3d=lambda wildcards, output: expand(
             bids(
                 root=output.probtrack_dir,
                 subject="{subject}",
@@ -341,6 +411,7 @@ rule transform_conn_to_template:
             ),
             target=targets,
             allow_missing=True,
+            **wildcards
         ),
     output:
         probtrack_dir=directory(
@@ -358,21 +429,18 @@ rule transform_conn_to_template:
     log:
         "logs/diffparc/transform_conn_to_template/sub-{subject}_hemi-{hemi}_label-{seed}_{template}.log",
     group:
-        "participant1"
+        "subj"
     shell:
-        "mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp}  &> {log} :::  {params.in_connmap_3d} :::+ {params.out_connmap_3d}"
+        #"mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp}  &> {log} :::  {params.in_connmap_3d} :::+ {params.out_connmap_3d}"
+        "mkdir -p {output} && ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1 parallel  --jobs {threads} antsApplyTransforms -d 3 --interpolation Linear -i {{1}} -o {{2}}  -r {input.ref} -t {input.warp}  :::  {params.in_connmap_3d} :::+ {params.out_connmap_3d}"
 
 
 # check bids-deriv -- connectivity?
 # space-{template}
 rule save_connmap_template_npz:
     input:
-        mask=rules.probseg_to_binary_template_seed.output.mask,
-        probtrack_dir=bids_gen_diffparc(
-            hemi="{hemi}",
-            space="{template}",
-            suffix="probtrack",
-        ),
+        mask=rules.dilate_seed.input.mask,
+        probtrack_dir=rules.transform_conn_to_template.output.probtrack_dir
     params:
         connmap_3d=lambda wildcards, input: expand(
             bids(
@@ -384,6 +452,7 @@ rule save_connmap_template_npz:
                 include_subject_dir=False,
             ),
             target=targets,
+            **wildcards,
             allow_missing=True,
         ),
     output:
@@ -397,7 +466,7 @@ rule save_connmap_template_npz:
     container:
         config["singularity"]["pythondeps"]
     group:
-        "participant1"
+        "subj"
     script:
         "../scripts/diffparc/save_connmap_template_npz.py"
 
@@ -421,7 +490,7 @@ rule gather_connmap_group:
     container:
         config["singularity"]["pythondeps"]
     group:
-        "diffparc_group1"
+        "subj"
     script:
         "../scripts/diffparc/gather_connmap_group.py"
 
@@ -443,6 +512,17 @@ rule spectral_clustering:
             k=range(2, config["max_k"] + 1),
             allow_missing=True,
         ),
+#        cluster_conn=directory(expand(
+#            bids_tpl_diffparc(
+#                from_="group",
+#                method="spectralcosine",
+#                k="{k}",
+#                suffix="clusterconn",
+#            ),
+#            k=range(2, config["max_k"] + 1),
+#            allow_missing=True,
+#        )),
+
     resources:
         mem_mb=64000,
     log:
@@ -450,7 +530,7 @@ rule spectral_clustering:
     container:
         config["singularity"]["pythondeps"]
     group:
-        "diffparc_group1"
+        "subj"
     script:
         "../scripts/diffparc/spectral_clustering.py"
 
@@ -476,10 +556,12 @@ rule sort_cluster_label:
     container:
         config["singularity"]["neuroglia"]
     group:
-        "diffparc_group1"
+        "subj"
     log:
         "logs/diffparc/sort_cluster_label/{hemi}_{seed}_{template}_{k}.log",
     shadow:
         "minimal"  #run in shadow dir to avoid conflicts between centroids txt files
     shell:
         "{input.shell_script} {input.seg} {output.seg} {wildcards.k} &> {log}"
+
+       
