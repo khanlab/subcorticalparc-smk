@@ -218,7 +218,7 @@ rule track_from_clusters:
         "diffparc_participant2"
     shell:
         "mkdir -p {output.probtrack_dir} && "
-        "singularity exec -e {params.extract_seed_cmd} && singularity exec -e --nv {params.container} "
+        "singularity exec -e {params.container} {params.extract_seed_cmd} && singularity exec -e --nv {params.container} "
         "probtrackx2_gpu --samples={params.bedpost_merged}  --mask={input.mask} --seed={output.probtrack_dir}/in_seed.nii.gz "
         "--seedref={output.probtrack_dir}/in_seed.nii.gz --nsamples={params.nsamples} "
         "--dir={output.probtrack_dir} {params.probtrack_opts} -V 2  &> {log}"
